@@ -129,8 +129,10 @@
             <option value="fra.1">Ligue 1 (Prancis)</option>
             <option value="uefa.champions">UEFA Champions League</option>
             <option value="uefa.europa">UEFA Europa League</option>
+            <option value="uefa.nations">UEFA Nations League</option>
             <option value="idn.1">BRI Liga 1 Indonesia</option>
             <option value="fifa.worldq.afc">Kualifikasi Piala Dunia (AFC / Timnas)</option>
+            <option value="fifa.friendly">FIFA International Friendly</option>
           </select>
 
           <button onclick="fetchRealTimeMatches()" id="fetchBtn" class="px-5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 shadow-lg shadow-emerald-500/25 transition flex items-center gap-2">
@@ -299,6 +301,7 @@
       { slug: 'fra.1', name: 'French Ligue 1' },
       { slug: 'uefa.champions', name: 'UEFA Champions League' },
       { slug: 'uefa.europa', name: 'UEFA Europa League' },
+      { slug: 'uefa.nations', name: 'UEFA Nations League' },
       { slug: 'idn.1', name: 'BRI Liga 1 Indonesia' },
       { slug: 'fifa.worldq.afc', name: 'FIFA World Cup Qualifiers (AFC)' },
       { slug: 'fifa.friendly', name: 'FIFA International Friendly' }
@@ -849,49 +852,102 @@ ATURAN WAJIB:
       }
     }
 
+    async function searchLiveMatchByTeamNames(homeQuery, awayQuery) {
+      const hLow = homeQuery.toLowerCase();
+      const aLow = awayQuery.toLowerCase();
+      // Check today and tomorrow on ESPN to see if this match is a real upcoming fixture
+      const datesToCheck = [];
+      for (let offset = 0; offset <= 2; offset++) {
+        const d = new Date();
+        d.setDate(d.getDate() + offset);
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        datesToCheck.push(`${yyyy}-${mm}-${dd}`);
+      }
+
+      for (const iso of datesToCheck) {
+        const fixtures = await fetchRealFixturesFromESPN(iso, 'ALL');
+        const found = fixtures.find(f => {
+          const fh = f.home_team.toLowerCase();
+          const fa = f.away_team.toLowerCase();
+          return (fh.includes(hLow) && fa.includes(aLow)) || (fh.includes(aLow) && fa.includes(hLow));
+        });
+        if (found) return found;
+      }
+      return null;
+    }
+
     async function runCustomPrediction() {
       const home = document.getElementById('customHomeInput').value.trim();
       const away = document.getElementById('customAwayInput').value.trim();
-      const comp = document.getElementById('customCompInput').value.trim() || 'Laga Kustom / Head-to-Head';
+      const comp = document.getElementById('customCompInput').value.trim();
       const btn = document.getElementById('customSubmitBtn');
 
       if (!home || !away) return alert('Isi kedua nama tim terlebih dahulu!');
       btn.disabled = true;
-      btn.textContent = 'Menganalisis...';
+      btn.textContent = 'Mencari Data Live...';
 
-      const prompt = `Analisis pertandingan sepak bola antara ${home} (Tuan Rumah) vs ${away} (Tamu) pada kompetisi ${comp}.
-Kembalikan HANYA array JSON berisi 1 objek pertandingan lengkap dengan statistik H2H dan kandidat pencetak gol:
+      try {
+        // Try finding real upcoming ESPN fixture first (including H2H & top scorers!)
+        const matchedLive = await searchLiveMatchByTeamNames(home, away);
+        btn.textContent = 'Menganalisis...';
+
+        const activeLeague = matchedLive ? matchedLive.league : (comp || 'Laga Kustom / Head-to-Head');
+        const activeKickoff = matchedLive ? `${matchedLive.kickoff} (Live Sync)` : 'Analisis Kustom';
+        const activeHome = matchedLive ? matchedLive.home_team : home;
+        const activeAway = matchedLive ? matchedLive.away_team : away;
+
+        const liveContextBlock = matchedLive
+          ? `DATA RESMI ESPN DITEMUKAN UNTUK LAGA INI:
+${JSON.stringify({
+  league: matchedLive.league,
+  kickoff: matchedLive.kickoff,
+  home_team: matchedLive.home_team,
+  away_team: matchedLive.away_team,
+  home_record: matchedLive.home_record,
+  away_record: matchedLive.away_record,
+  home_form: matchedLive.home_form,
+  away_form: matchedLive.away_form,
+  espn_live_h2h: matchedLive.live_h2h,
+  espn_live_top_scorers: matchedLive.live_scorers
+}, null, 2)}
+WAJIB gunakan angka H2H dan daftar top skor ESPN di atas jika tersedia.`
+          : `Tidak ditemukan jadwal resmi 48 jam ke depan di ESPN untuk duel ini; gunakan pengetahuan statistik terkini.`;
+
+        const prompt = `Analisis pertandingan sepak bola antara ${activeHome} (Tuan Rumah) vs ${activeAway} (Tamu) pada kompetisi ${activeLeague}.
+${liveContextBlock}
+Kembalikan HANYA array JSON berisi 1 objek pertandingan lengkap:
 [
   {
-    "league": "${comp}",
-    "kickoff": "Analisis Kustom",
-    "home_team": "${home}",
-    "away_team": "${away}",
-    "home_score": 2,
-    "away_score": 1,
-    "home_win_prob": 52,
-    "draw_prob": 26,
-    "away_win_prob": 22,
+    "league": "${activeLeague}",
+    "kickoff": "${activeKickoff}",
+    "home_team": "${activeHome}",
+    "away_team": "${activeAway}",
+    "home_score": 1,
+    "away_score": 2,
+    "home_win_prob": 28,
+    "draw_prob": 27,
+    "away_win_prob": 45,
     "confidence": "Tinggi",
     "h2h": {
-      "home_wins": 2,
+      "home_wins": 1,
       "draws": 2,
-      "away_wins": 1,
+      "away_wins": 2,
       "last_meeting": "1-1",
       "trend": "1 kalimat ringkasan tren pertemuan kedua tim"
     },
     "predicted_scorers": [
-      { "player": "Pemain Kunci Home", "team": "HOME", "prob": 46, "note": "Penyerang andalan" },
-      { "player": "Pemain Kunci Away", "team": "AWAY", "prob": 38, "note": "Top skor tim" }
+      { "player": "Pemain Kunci Home", "team": "HOME", "prob": 42, "note": "Penyerang andalan" },
+      { "player": "Pemain Kunci Away", "team": "AWAY", "prob": 48, "note": "Top skor aktif" }
     ],
     "key_factor": "Faktor kunci penentu pertandingan",
-    "score_reasoning": "Penjelasan detail 3 kalimat mengapa skor spesifik ini diprediksi terjadi berdasarkan kekuatan kedua tim dan rekor pertemuan."
+    "score_reasoning": "Penjelasan detail 3 kalimat mengapa skor spesifik ini diprediksi terjadi berdasarkan performa terkini, rekor grup/liga, dan H2H."
   }
 ]`;
 
-      try {
         const { text, usedModel } = await callOpenRouter(prompt);
-        const parsed = extractJsonArray(text).map(item => normalizeMatchPrediction(item, null));
+        const parsed = extractJsonArray(text).map(item => normalizeMatchPrediction(item, matchedLive));
         currentMatches = [...parsed, ...currentMatches];
         renderMatches(currentMatches);
         document.getElementById('sourcesBox').classList.remove('hidden');
@@ -899,6 +955,7 @@ Kembalikan HANYA array JSON berisi 1 objek pertandingan lengkap dengan statistik
         closeCustomModal();
         document.getElementById('customHomeInput').value = '';
         document.getElementById('customAwayInput').value = '';
+        document.getElementById('customCompInput').value = '';
       } catch (err) {
         alert('Error: ' + err.message);
       } finally {
