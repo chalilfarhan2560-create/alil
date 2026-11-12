@@ -751,8 +751,7 @@ Gunakan bahasa analitis sepak bola yang tajam, padat, dan mudah dibaca.`;
         const { text } = await callOpenRouter(prompt);
         const formatted = text
           .replace(/\*\*(.*?)\*\*/g, '<strong class="text-emerald-300">$1</strong>')
-          .replace(/
-/g, '<br/>');
+          .replace(/\n/g, '<br/>');
         body.innerHTML = `<div class="space-y-2 text-slate-200">${formatted}</div>`;
       } catch (err) {
         body.innerHTML = `<p class="text-rose-400">Gagal memuat analisis mendalam: ${err.message}</p>`;
