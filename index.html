@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoalPulse AI — Real-Time Football Match Predictor (OpenRouter Edition)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['"Chakra Petch"', 'sans-serif'],
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            pitch: {
+              950: '#060a0f',
+              900: '#0b121b',
+              800: '#121d2b',
+              700: '#1b2b40',
+            },
+            neon: {
+              green: '#10b981',
+              emerald: '#34d399',
+              amber: '#f59e0b',
+              rose: '#f43f5e',
+              cyan: '#06b6d4'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #060a0f;
+      background-image:
+        radial-gradient(circle at 15% 10%, rgba(16, 185, 129, 0.08), transparent 35%),
+        radial-gradient(circle at 85% 20%, rgba(6, 182, 212, 0.07), transparent 35%);
+      color: #f1f5f9;
+    }
+    .glass-card {
+      background: rgba(18, 29, 43, 0.78);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .glass-card:hover {
+      border-color: rgba(16, 185, 129, 0.35);
+    }
+    .stadium-grid {
+      background-size: 32px 32px;
+      background-image: linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+                        linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #060a0f; }
+    ::-webkit-scrollbar-thumb { background: #1b2b40; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #10b981; }
+  </style>
+</head>
+<body class="min-h-screen font-sans stadium-grid antialiased selection:bg-emerald-500 selection:text-slate-950">
+
+  <!-- Top Navbar -->
+  <header class="sticky top-0 z-40 border-b border-white/10 bg-pitch-950/90 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+          <svg class="w-6 h-6 text-slate-950" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10"/>
+            <polygon points="12 7 16.5 10.2 14.8 15.5 9.2 15.5 7.5 10.2"/>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-display font-bold text-xl tracking-wide text-white">GOALPULSE <span class="text-emerald-400">AI</span></span>
+            <span class="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+              <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span> OpenRouter Live
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-400 hidden sm:block">Real-Time Fixtures Feed + OpenRouter Tactical Scoreline Engine</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <button onclick="openCustomModal()" class="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-pitch-800 hover:bg-pitch-700 text-slate-200 border border-white/10 transition flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+          <span>Prediksi Kustom</span>
+        </button>
+
+        <button id="apiKeyStatusBtn" onclick="openApiModal()" class="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 transition flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+          <span id="apiKeyBtnLabel">Atur OpenRouter Key</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+    <!-- Control Bar: Date & League Filter -->
+    <section class="glass-card rounded-2xl p-4 sm:p-5 shadow-xl">
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        
+        <!-- Quick Date Controls -->
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="setQuickDate(-1)" class="date-pill px-3.5 py-2 rounded-xl text-xs font-semibold bg-pitch-900 hover:bg-pitch-700 border border-white/10 text-slate-300 transition">Kemarin</button>
+          <button onclick="setQuickDate(0)" class="date-pill px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-500 text-slate-950 border border-emerald-400 shadow-md shadow-emerald-500/20 transition">Hari Ini</button>
+          <button onclick="setQuickDate(1)" class="date-pill px-3.5 py-2 rounded-xl text-xs font-semibold bg-pitch-900 hover:bg-pitch-700 border border-white/10 text-slate-300 transition">Besok</button>
+          
+          <div class="relative flex items-center">
+            <input type="date" id="matchDateInput" onchange="onDateInputChange()" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-pitch-900 border border-white/15 text-white focus:outline-none focus:border-emerald-400" />
+          </div>
+        </div>
+
+        <!-- League Selector & Fetch Button -->
+        <div class="flex flex-wrap items-center gap-2.5">
+          <select id="leagueSelect" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium bg-pitch-900 border border-white/15 text-slate-200 focus:outline-none focus:border-emerald-400">
+            <option value="ALL">Semua Kompetisi Utama</option>
+            <option value="eng.1">Premier League (Inggris)</option>
+            <option value="esp.1">La Liga (Spanyol)</option>
+            <option value="ita.1">Serie A (Italia)</option>
+            <option value="ger.1">Bundesliga (Jerman)</option>
+            <option value="fra.1">Ligue 1 (Prancis)</option>
+            <option value="uefa.champions">UEFA Champions League</option>
+            <option value="uefa.europa">UEFA Europa League</option>
+            <option value="idn.1">BRI Liga 1 Indonesia</option>
+            <option value="fifa.worldq.afc">Kualifikasi Piala Dunia (AFC / Timnas)</option>
+          </select>
+
+          <button onclick="fetchRealTimeMatches()" id="fetchBtn" class="px-5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 shadow-lg shadow-emerald-500/25 transition flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.3" viewBox="0 0 24 24"><path d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"/></svg>
+            <span>Cari Jadwal & Prediksi Live</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Status Banner -->
+      <div class="mt-4 pt-3.5 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+        <div class="flex items-center gap-2">
+          <span class="font-semibold text-slate-200" id="activeDateDisplay">Memuat tanggal...</span>
+          <span>•</span>
+          <span id="statusText">Siap menarik jadwal pertandingan real-time & analisis OpenRouter.</span>
+        </div>
+        <div class="text-[11px] text-cyan-400/90 font-medium" id="activeModelDisplay">
+          Engine: OpenRouter Free Router + Live Fixtures API
+        </div>
+      </div>
+    </section>
+
+    <!-- API Key Warning Banner (Auto hides when key is saved) -->
+    <div id="noKeyBanner" class="hidden rounded-2xl p-4 bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+      <div class="flex items-start gap-3">
+        <div class="p-2 rounded-lg bg-amber-500/20 text-amber-400 mt-0.5">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+        </div>
+        <div>
+          <h3 class="text-sm font-bold text-amber-300">API Key OpenRouter Belum Terpasang</h3>
+          <p class="text-xs text-slate-300 mt-0.5">Pasang API Key OpenRouter (<code>sk-or-v1-...</code>) dari <a href="https://openrouter.ai/keys" target="_blank" class="underline text-amber-300 font-semibold">openrouter.ai/keys</a> agar AI dapat menghitung prediksi skor dan analisis taktis secara otomatis.</p>
+        </div>
+      </div>
+      <button onclick="openApiModal()" class="shrink-0 px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 transition">
+        Pasang OpenRouter Key
+      </button>
+    </div>
+
+    <!-- Loading Skeleton -->
+    <div id="loadingContainer" class="hidden grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div class="glass-card rounded-2xl p-6 animate-pulse space-y-4">
+        <div class="h-4 bg-slate-700/60 rounded w-1/3"></div>
+        <div class="flex justify-between items-center py-3">
+          <div class="h-6 bg-slate-700/60 rounded w-1/4"></div>
+          <div class="h-10 bg-emerald-500/20 rounded-xl w-20"></div>
+          <div class="h-6 bg-slate-700/60 rounded w-1/4"></div>
+        </div>
+        <div class="h-3 bg-slate-700/60 rounded w-full"></div>
+        <div class="h-16 bg-slate-800/80 rounded-xl w-full"></div>
+      </div>
+      <div class="glass-card rounded-2xl p-6 animate-pulse space-y-4">
+        <div class="h-4 bg-slate-700/60 rounded w-1/3"></div>
+        <div class="flex justify-between items-center py-3">
+          <div class="h-6 bg-slate-700/60 rounded w-1/4"></div>
+          <div class="h-10 bg-emerald-500/20 rounded-xl w-20"></div>
+          <div class="h-6 bg-slate-700/60 rounded w-1/4"></div>
+        </div>
+        <div class="h-3 bg-slate-700/60 rounded w-full"></div>
+        <div class="h-16 bg-slate-800/80 rounded-xl w-full"></div>
+      </div>
+    </div>
+
+    <!-- Matches Grid -->
+    <section id="matchesGrid" class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <!-- Cards injected dynamically -->
+    </section>
+
+    <!-- Data Source Footer -->
+    <div id="sourcesBox" class="hidden glass-card rounded-xl p-4 text-xs text-slate-400 flex flex-wrap items-center justify-between gap-2">
+      <span><strong class="text-slate-300">Sumber Jadwal Real-Time:</strong> ESPN Live Sports Scoreboard API (Terverifikasi)</span>
+      <span id="modelUsedBadge" class="text-cyan-400 font-medium"></span>
+    </div>
+
+  </main>
+
+  <!-- OpenRouter API Key Settings Modal -->
+  <div id="apiModal" class="fixed inset-0 z-50 hidden bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-card rounded-2xl max-w-md w-full p-6 border border-white/15 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="font-display font-bold text-lg text-white">Pengaturan OpenRouter API</h2>
+        <button onclick="closeApiModal()" class="text-slate-400 hover:text-white text-xl leading-none">&times;</button>
+      </div>
+      <p class="text-xs text-slate-300 leading-relaxed">
+        API Key disimpan secara lokal di browser perangkat Anda (<code>localStorage</code>) dan dikirim langsung ke <code>openrouter.ai</code>.
+      </p>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">OpenRouter API Key</label>
+          <input type="password" id="apiKeyInput" placeholder="sk-or-v1-..." class="w-full px-3.5 py-2.5 rounded-xl bg-pitch-950 border border-white/15 text-sm text-white focus:outline-none focus:border-emerald-400" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Pilihan Model OpenRouter (Gratis)</label>
+          <select id="modelSelect" class="w-full px-3.5 py-2.5 rounded-xl bg-pitch-950 border border-white/15 text-xs text-white focus:outline-none focus:border-emerald-400">
+            <option value="openrouter/free">Auto Free Router (openrouter/free — Paling Stabil)</option>
+            <option value="google/gemini-2.0-flash-exp:free">Google: Gemini 2.0 Flash (Free)</option>
+            <option value="meta-llama/llama-3.3-70b-instruct:free">Meta: Llama 3.3 70B Instruct (Free)</option>
+            <option value="deepseek/deepseek-chat-v3-0324:free">DeepSeek: V3 0324 (Free)</option>
+            <option value="qwen/qwen-2.5-72b-instruct:free">Qwen: 2.5 72B Instruct (Free)</option>
+          </select>
+        </div>
+        <a href="https://openrouter.ai/keys" target="_blank" class="inline-block text-[11px] text-cyan-400 hover:underline">
+          &rarr; Kelola atau buat key gratis di openrouter.ai/keys
+        </a>
+      </div>
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button onclick="clearApiKey()" class="px-3.5 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition">Hapus Key</button>
+        <button onclick="saveApiKey()" class="px-5 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition">Simpan & Aktifkan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Match Modal -->
+  <div id="customModal" class="fixed inset-0 z-50 hidden bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-card rounded-2xl max-w-md w-full p-6 border border-white/15 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="font-display font-bold text-lg text-white">Prediksi Pertandingan Kustom</h2>
+        <button onclick="closeCustomModal()" class="text-slate-400 hover:text-white text-xl leading-none">&times;</button>
+      </div>
+      <p class="text-xs text-slate-400">Masukkan dua tim untuk dianalisis oleh OpenRouter AI berdasarkan kekuatan skuad, gaya bermain, dan rekor pertemuan.</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Tim Tuan Rumah (Home)</label>
+          <input type="text" id="customHomeInput" placeholder="Contoh: Arsenal" class="w-full px-3.5 py-2 rounded-xl bg-pitch-950 border border-white/15 text-sm text-white focus:outline-none focus:border-emerald-400" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Tim Tamu (Away)</label>
+          <input type="text" id="customAwayInput" placeholder="Contoh: Real Madrid" class="w-full px-3.5 py-2 rounded-xl bg-pitch-950 border border-white/15 text-sm text-white focus:outline-none focus:border-emerald-400" />
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-300 mb-1">Kompetisi / Konteks (Opsional)</label>
+        <input type="text" id="customCompInput" placeholder="Contoh: UEFA Champions League" class="w-full px-3.5 py-2 rounded-xl bg-pitch-950 border border-white/15 text-sm text-white focus:outline-none focus:border-emerald-400" />
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="closeCustomModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-white/5">Batal</button>
+        <button onclick="runCustomPrediction()" id="customSubmitBtn" class="px-5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950">Analisis & Prediksi Skor</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Deep Live Analysis Modal -->
+  <div id="deepModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-card rounded-2xl max-w-2xl w-full max-h-[85vh] flex flex-col border border-white/15 shadow-2xl">
+      <div class="p-5 border-b border-white/10 flex items-center justify-between">
+        <div>
+          <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Deep Tactical & Matchup Breakdown</span>
+          <h3 id="deepModalTitle" class="font-display font-bold text-lg text-white mt-0.5">Memuat Analisis...</h3>
+        </div>
+        <button onclick="closeDeepModal()" class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+      </div>
+      <div id="deepModalBody" class="p-5 overflow-y-auto text-sm text-slate-200 space-y-3 leading-relaxed">
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'goalpulse_openrouter_api_key';
+    const STORAGE_MODEL = 'goalpulse_openrouter_model';
+    let currentMatches = [];
+
+    const LEAGUES_CONFIG = [
+      { slug: 'eng.1', name: 'English Premier League' },
+      { slug: 'esp.1', name: 'Spanish La Liga' },
+      { slug: 'ita.1', name: 'Italian Serie A' },
+      { slug: 'ger.1', name: 'German Bundesliga' },
+      { slug: 'fra.1', name: 'French Ligue 1' },
+      { slug: 'uefa.champions', name: 'UEFA Champions League' },
+      { slug: 'uefa.europa', name: 'UEFA Europa League' },
+      { slug: 'idn.1', name: 'BRI Liga 1 Indonesia' },
+      { slug: 'fifa.worldq.afc', name: 'FIFA World Cup Qualifiers (AFC)' },
+      { slug: 'fifa.friendly', name: 'FIFA International Friendly' }
+    ];
+
+    window.addEventListener('DOMContentLoaded', () => {
+      setQuickDate(0, false);
+      updateApiKeyUI();
+      const savedKey = getApiKey();
+      if (savedKey) {
+        fetchRealTimeMatches();
+      } else {
+        renderSampleShowcase();
+      }
+    });
+
+    function getApiKey() {
+      return localStorage.getItem(STORAGE_KEY) || '';
+    }
+
+    function getSelectedModel() {
+      return localStorage.getItem(STORAGE_MODEL) || 'openrouter/free';
+    }
+
+    function updateApiKeyUI() {
+      const key = getApiKey();
+      const model = getSelectedModel();
+      const banner = document.getElementById('noKeyBanner');
+      const label = document.getElementById('apiKeyBtnLabel');
+      const btn = document.getElementById('apiKeyStatusBtn');
+      const modelDisp = document.getElementById('activeModelDisplay');
+
+      modelDisp.textContent = `Model: ${model}`;
+
+      if (key) {
+        banner.classList.add('hidden');
+        label.textContent = 'OpenRouter Aktif';
+        btn.className = 'px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 transition flex items-center gap-1.5';
+      } else {
+        banner.classList.remove('hidden');
+        label.textContent = 'Pasang OpenRouter Key';
+        btn.className = 'px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 transition flex items-center gap-1.5';
+      }
+    }
+
+    function openApiModal() {
+      document.getElementById('apiKeyInput').value = getApiKey();
+      document.getElementById('modelSelect').value = getSelectedModel();
+      document.getElementById('apiModal').classList.remove('hidden');
+    }
+    function closeApiModal() {
+      document.getElementById('apiModal').classList.add('hidden');
+    }
+    function saveApiKey() {
+      const val = document.getElementById('apiKeyInput').value.trim();
+      const mod = document.getElementById('modelSelect').value;
+      if (!val) return alert('Masukkan API Key OpenRouter terlebih dahulu.');
+      localStorage.setItem(STORAGE_KEY, val);
+      localStorage.setItem(STORAGE_MODEL, mod);
+      updateApiKeyUI();
+      closeApiModal();
+      fetchRealTimeMatches();
+    }
+    function clearApiKey() {
+      localStorage.removeItem(STORAGE_KEY);
+      document.getElementById('apiKeyInput').value = '';
+      updateApiKeyUI();
+      closeApiModal();
+    }
+
+    function openCustomModal() {
+      document.getElementById('customModal').classList.remove('hidden');
+    }
+    function closeCustomModal() {
+      document.getElementById('customModal').classList.add('hidden');
+    }
+    function closeDeepModal() {
+      document.getElementById('deepModal').classList.add('hidden');
+    }
+
+    function setQuickDate(offsetDays, autoFetch = true) {
+      const d = new Date();
+      d.setDate(d.getDate() + offsetDays);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const iso = `${yyyy}-${mm}-${dd}`;
+      document.getElementById('matchDateInput').value = iso;
+      updateDateLabel(iso);
+
+      document.querySelectorAll('.date-pill').forEach((btn, idx) => {
+        const active = (idx === 0 && offsetDays === -1) || (idx === 1 && offsetDays === 0) || (idx === 2 && offsetDays === 1);
+        btn.className = active
+          ? 'date-pill px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-500 text-slate-950 border border-emerald-400 shadow-md shadow-emerald-500/20 transition'
+          : 'date-pill px-3.5 py-2 rounded-xl text-xs font-semibold bg-pitch-900 hover:bg-pitch-700 border border-white/10 text-slate-300 transition';
+      });
+
+      if (autoFetch && getApiKey()) {
+        fetchRealTimeMatches();
+      }
+    }
+
+    function onDateInputChange() {
+      const iso = document.getElementById('matchDateInput').value;
+      updateDateLabel(iso);
+      document.querySelectorAll('.date-pill').forEach(btn => {
+        btn.className = 'date-pill px-3.5 py-2 rounded-xl text-xs font-semibold bg-pitch-900 hover:bg-pitch-700 border border-white/10 text-slate-300 transition';
+      });
+      if (getApiKey()) fetchRealTimeMatches();
+    }
+
+    function updateDateLabel(isoDate) {
+      if (!isoDate) return;
+      const [y, m, d] = isoDate.split('-').map(Number);
+      const dateObj = new Date(y, m - 1, d);
+      const formatted = dateObj.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      document.getElementById('activeDateDisplay').textContent = formatted;
+    }
+
+    // 1. Fetch Real-Time Fixtures from ESPN Public Scoreboard API (No API key needed, 100% live)
+    async function fetchRealFixturesFromESPN(isoDate, leagueFilter) {
+      const yyyymmdd = isoDate.replace(/-/g, '');
+      const targets = leagueFilter === 'ALL'
+        ? LEAGUES_CONFIG
+        : LEAGUES_CONFIG.filter(l => l.slug === leagueFilter);
+
+      const requests = targets.map(async (lg) => {
+        try {
+          const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${lg.slug}/scoreboard?dates=${yyyymmdd}`;
+          const res = await fetch(url);
+          if (!res.ok) return [];
+          const data = await res.json();
+          const events = data.events || [];
+          return events.map(ev => {
+            const comp = ev.competitions?.[0];
+            const home = comp?.competitors?.find(c => c.homeAway === 'home');
+            const away = comp?.competitors?.find(c => c.homeAway === 'away');
+            const kickoffDate = new Date(ev.date);
+            const kickoffWIB = kickoffDate.toLocaleTimeString('id-ID', {
+              hour: '2-digit',
+              minute: '2-digit',
+              timeZone: 'Asia/Jakarta'
+            }) + ' WIB';
+
+            const state = ev.status?.type?.state || 'pre';
+            const statusDesc = state === 'post'
+              ? `FT (${home?.score ?? 0}-${away?.score ?? 0})`
+              : state === 'in'
+                ? `LIVE (${home?.score ?? 0}-${away?.score ?? 0})`
+                : kickoffWIB;
+
+            return {
+              league: lg.name,
+              kickoff: statusDesc,
+              home_team: home?.team?.displayName || 'Home Team',
+              away_team: away?.team?.displayName || 'Away Team',
+              home_record: home?.records?.[0]?.summary || '',
+              away_record: away?.records?.[0]?.summary || '',
+              venue: comp?.venue?.fullName || ''
+            };
+          });
+        } catch {
+          return [];
+        }
+      });
+
+      const results = await Promise.all(requests);
+      return results.flat().slice(0, 8);
+    }
+
+    // 2. Call OpenRouter API (OpenAI-compatible endpoint)
+    async function callOpenRouter(promptText) {
+      const apiKey = getApiKey();
+      if (!apiKey) {
+        openApiModal();
+        throw new Error('API Key OpenRouter belum dipasang.');
+      }
+
+      const model = getSelectedModel();
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': window.location.href,
+          'X-Title': 'GoalPulse AI Football Predictor'
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [
+            {
+              role: 'system',
+              content: 'Anda adalah analis taktis sepak bola profesional. Selalu berikan output dalam Bahasa Indonesia yang tajam, objektif, dan akurat.'
+            },
+            {
+              role: 'user',
+              content: promptText
+            }
+          ],
+          temperature: 0.25
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error?.message || `OpenRouter Error (${res.status})`);
+      }
+
+      const text = data.choices?.[0]?.message?.content || '';
+      const usedModel = data.model || model;
+      return { text, usedModel };
+    }
+
+    function extractJsonArray(rawText) {
+      const cleaned = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+      const start = cleaned.indexOf('[');
+      const end = cleaned.lastIndexOf(']');
+      if (start !== -1 && end !== -1) {
+        return JSON.parse(cleaned.slice(start, end + 1));
+      }
+      throw new Error('Model AI tidak mengembalikan format JSON yang valid. Coba klik Cari Jadwal lagi.');
+    }
+
+    // Enforce strict alignment between predicted score and win/draw/loss probabilities
+    function normalizeMatchPrediction(m) {
+      let hs = Number(m.home_score ?? 1);
+      let as = Number(m.away_score ?? 1);
+      let hw = Number(m.home_win_prob ?? 40);
+      let dr = Number(m.draw_prob ?? 30);
+      let aw = Number(m.away_win_prob ?? 30);
+
+      let total = hw + dr + aw;
+      if (total <= 0) { hw = 40; dr = 30; aw = 30; total = 100; }
+      hw = Math.round((hw / total) * 100);
+      dr = Math.round((dr / total) * 100);
+      aw = 100 - hw - dr;
+
+      if (hs > as && hw <= Math.max(dr, aw)) {
+        hw = Math.max(dr, aw) + 12;
+        const rem = 100 - hw;
+        dr = Math.round(rem * 0.55);
+        aw = rem - dr;
+      } else if (as > hs && aw <= Math.max(dr, hw)) {
+        aw = Math.max(dr, hw) + 12;
+        const rem = 100 - aw;
+        dr = Math.round(rem * 0.55);
+        hw = rem - dr;
+      } else if (hs === as && dr < Math.max(hw, aw) - 5) {
+        dr = 38;
+        hw = 32;
+        aw = 30;
+      }
+
+      return {
+        ...m,
+        home_score: hs,
+        away_score: as,
+        home_win_prob: hw,
+        draw_prob: dr,
+        away_win_prob: aw
+      };
+    }
+
+    async function fetchRealTimeMatches() {
+      const dateStr = document.getElementById('matchDateInput').value;
+      const leagueSlug = document.getElementById('leagueSelect').value;
+      const statusText = document.getElementById('statusText');
+      const loader = document.getElementById('loadingContainer');
+      const grid = document.getElementById('matchesGrid');
+      const fetchBtn = document.getElementById('fetchBtn');
+
+      loader.classList.remove('hidden');
+      grid.innerHTML = '';
+      document.getElementById('sourcesBox').classList.add('hidden');
+      fetchBtn.disabled = true;
+      statusText.textContent = '1/2 Menarik jadwal pertandingan nyata dari server olahraga...';
+
+      try {
+        const liveFixtures = await fetchRealFixturesFromESPN(dateStr, leagueSlug);
+
+        if (!liveFixtures.length) {
+          loader.classList.add('hidden');
+          fetchBtn.disabled = false;
+          statusText.textContent = `Tidak ada jadwal resmi di liga pilihan pada ${dateStr}. Gunakan "Prediksi Kustom" atau ganti tanggal.`;
+          grid.innerHTML = `
+            <div class="col-span-full glass-card rounded-2xl p-8 text-center space-y-3">
+              <p class="text-sm font-bold text-slate-200">Tidak Ada Jadwal Liga Utama pada ${dateStr}</p>
+              <p class="text-xs text-slate-400 max-w-md mx-auto">Coba pilih tanggal lain (misalnya akhir pekan) atau gunakan tombol <strong>Prediksi Kustom</strong> di pojok kanan atas untuk menganalisis duel dua tim mana saja.</p>
+              <button onclick="openCustomModal()" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 text-slate-950">+ Buat Prediksi Kustom</button>
+            </div>`;
+          return;
+        }
+
+        statusText.textContent = `2/2 Ditemukan ${liveFixtures.length} laga nyata! Menganalisis prediksi skor via OpenRouter...`;
+
+        const prompt = `Berikut adalah daftar jadwal pertandingan sepak bola NYATA pada tanggal ${dateStr}:
+${JSON.stringify(liveFixtures, null, 2)}
+
+Tugas Anda: Buat prediksi skor spesifik dan analisis taktis mendalam untuk SETIAP pertandingan di atas.
+Kembalikan HANYA array JSON murni tanpa teks pengantar atau penutup, dengan struktur persis:
+[
+  {
+    "league": "Nama Kompetisi sesuai data",
+    "kickoff": "Jam kickoff sesuai data",
+    "home_team": "Nama Tim Tuan Rumah sesuai data",
+    "away_team": "Nama Tim Tamu sesuai data",
+    "home_score": 2,
+    "away_score": 1,
+    "home_win_prob": 54,
+    "draw_prob": 25,
+    "away_win_prob": 21,
+    "confidence": "Tinggi / Sedang",
+    "key_factor": "1 kalimat singkat faktor penentu utama pertandingan",
+    "score_reasoning": "2-3 kalimat analisis taktis berbahasa Indonesia yang menjelaskan secara spesifik mengapa skor akhir tersebut paling realistis terjadi berdasarkan kekuatan skuad, gaya main, dan keuntungan kandang."
+  }
+]
+ATURAN WAJIB:
+1. Jika home_score > away_score, maka home_win_prob HARUS paling tinggi.
+2. Jika away_score > home_score, maka away_win_prob HARUS paling tinggi.
+3. Jika home_score == away_score, maka draw_prob HARUS kompetitif (minimal 35%).
+4. Total home_win_prob + draw_prob + away_win_prob HARUS sama dengan 100.`;
+
+        const { text, usedModel } = await callOpenRouter(prompt);
+        const parsed = extractJsonArray(text);
+        currentMatches = parsed.map(normalizeMatchPrediction);
+        renderMatches(currentMatches);
+
+        document.getElementById('sourcesBox').classList.remove('hidden');
+        document.getElementById('modelUsedBadge').textContent = `Diproses oleh: ${usedModel}`;
+        statusText.textContent = `Berhasil memuat ${currentMatches.length} prediksi pertandingan real-time untuk ${dateStr}.`;
+      } catch (err) {
+        statusText.textContent = `Terjadi kendala: ${err.message}`;
+        grid.innerHTML = `
+          <div class="col-span-full glass-card rounded-2xl p-6 text-center space-y-3 border border-rose-500/30">
+            <p class="text-sm font-semibold text-rose-400">Gagal Memuat Prediksi</p>
+            <p class="text-xs text-slate-300 max-w-lg mx-auto">${err.message}</p>
+            <button onclick="fetchRealTimeMatches()" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 text-slate-950">Coba Lagi</button>
+          </div>`;
+      } finally {
+        loader.classList.add('hidden');
+        fetchBtn.disabled = false;
+      }
+    }
+
+    async function runCustomPrediction() {
+      const home = document.getElementById('customHomeInput').value.trim();
+      const away = document.getElementById('customAwayInput').value.trim();
+      const comp = document.getElementById('customCompInput').value.trim() || 'Laga Kustom / Head-to-Head';
+      const btn = document.getElementById('customSubmitBtn');
+
+      if (!home || !away) return alert('Isi kedua nama tim terlebih dahulu!');
+      btn.disabled = true;
+      btn.textContent = 'Menganalisis...';
+
+      const prompt = `Analisis pertandingan sepak bola antara ${home} (Tuan Rumah) vs ${away} (Tamu) pada kompetisi ${comp}.
+Kembalikan HANYA array JSON berisi 1 objek pertandingan:
+[
+  {
+    "league": "${comp}",
+    "kickoff": "Analisis Kustom",
+    "home_team": "${home}",
+    "away_team": "${away}",
+    "home_score": 2,
+    "away_score": 1,
+    "home_win_prob": 52,
+    "draw_prob": 26,
+    "away_win_prob": 22,
+    "confidence": "Tinggi",
+    "key_factor": "Faktor kunci penentu pertandingan",
+    "score_reasoning": "Penjelasan detail 3 kalimat mengapa skor spesifik ini diprediksi terjadi berdasarkan kekuatan kedua tim."
+  }
+]`;
+
+      try {
+        const { text, usedModel } = await callOpenRouter(prompt);
+        const parsed = extractJsonArray(text).map(normalizeMatchPrediction);
+        currentMatches = [...parsed, ...currentMatches];
+        renderMatches(currentMatches);
+        document.getElementById('sourcesBox').classList.remove('hidden');
+        document.getElementById('modelUsedBadge').textContent = `Diproses oleh: ${usedModel}`;
+        closeCustomModal();
+        document.getElementById('customHomeInput').value = '';
+        document.getElementById('customAwayInput').value = '';
+      } catch (err) {
+        alert('Error: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Analisis & Prediksi Skor';
+      }
+    }
+
+    async function openDeepAnalysis(index) {
+      const match = currentMatches[index];
+      if (!match) return;
+
+      const modal = document.getElementById('deepModal');
+      const title = document.getElementById('deepModalTitle');
+      const body = document.getElementById('deepModalBody');
+
+      title.textContent = `${match.home_team} vs ${match.away_team} (${match.home_score}-${match.away_score})`;
+      body.innerHTML = `<div class="py-8 text-center text-slate-400 animate-pulse">Menyusun bedah taktik, duel lini tengah, dan skenario gol via OpenRouter AI...</div>`;
+      modal.classList.remove('hidden');
+
+      const prompt = `Berikan laporan bedah taktik pra-pertandingan mendalam berbahasa Indonesia untuk laga ${match.home_team} vs ${match.away_team} (${match.league}).
+Prediksi skor model kita adalah ${match.home_team} ${match.home_score} - ${match.away_score} ${match.away_team}.
+Susun ringkas dalam 4 poin jelas:
+1. Karakteristik Gaya Bermain & Produktivitas Gol Kedua Tim
+2. Duel Kunci Antar Lini (Tengah & Sayap)
+3. Skenario Terciptanya Gol & Momentum Babak
+4. Rasionalisasi Skor Akhir (${match.home_score}-${match.away_score})
+Gunakan bahasa analitis sepak bola yang tajam, padat, dan mudah dibaca.`;
+
+      try {
+        const { text } = await callOpenRouter(prompt);
+        const formatted = text
+          .replace(/\*\*(.*?)\*\*/g, '<strong class="text-emerald-300">$1</strong>')
+          .replace(/\n/g, '<br/>');
+        body.innerHTML = `<div class="space-y-2 text-slate-200">${formatted}</div>`;
+      } catch (err) {
+        body.innerHTML = `<p class="text-rose-400">Gagal memuat analisis mendalam: ${err.message}</p>`;
+      }
+    }
+
+    function renderMatches(matches) {
+      const grid = document.getElementById('matchesGrid');
+      if (!matches.length) {
+        grid.innerHTML = `<div class="col-span-full glass-card rounded-2xl p-8 text-center text-sm text-slate-400">Tidak ada jadwal pertandingan ditemukan.</div>`;
+        return;
+      }
+
+      grid.innerHTML = matches.map((m, idx) => {
+        const outcomeBadge = m.home_score > m.away_score
+          ? `<span class="text-emerald-400 font-semibold">Unggul ${m.home_team}</span>`
+          : m.away_score > m.home_score
+            ? `<span class="text-cyan-400 font-semibold">Unggul ${m.away_team}</span>`
+            : `<span class="text-amber-400 font-semibold">Potensi Imbang</span>`;
+
+        return `
+          <article class="glass-card rounded-2xl p-5 transition duration-200 flex flex-col justify-between gap-4 shadow-lg">
+            <div>
+              <!-- Header -->
+              <div class="flex items-center justify-between gap-2 text-xs pb-3 border-b border-white/10">
+                <span class="font-semibold text-emerald-400 truncate">${m.league}</span>
+                <div class="flex items-center gap-2 shrink-0">
+                  <span class="px-2 py-0.5 rounded bg-white/5 text-slate-300 font-medium">${m.kickoff}</span>
+                  <span class="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 text-[10px] font-bold uppercase">${m.confidence || 'Tinggi'}</span>
+                </div>
+              </div>
+
+              <!-- Scoreboard Prediction -->
+              <div class="grid grid-cols-3 items-center gap-2 py-5 text-center">
+                <div class="space-y-1">
+                  <div class="w-11 h-11 mx-auto rounded-full bg-pitch-900 border border-white/10 flex items-center justify-center font-display font-bold text-sm text-emerald-400">
+                    ${m.home_team.slice(0, 3).toUpperCase()}
+                  </div>
+                  <h3 class="font-bold text-sm sm:text-base text-white leading-tight">${m.home_team}</h3>
+                  <span class="text-[10px] uppercase tracking-wider text-slate-400">Home</span>
+                </div>
+
+                <div class="flex flex-col items-center">
+                  <span class="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Prediksi Skor</span>
+                  <div class="px-4 py-2 rounded-2xl bg-pitch-950 border border-emerald-500/40 shadow-inner shadow-emerald-500/10 flex items-center gap-2.5">
+                    <span class="font-display font-bold text-2xl sm:text-3xl text-emerald-400">${m.home_score}</span>
+                    <span class="text-slate-500 font-bold">-</span>
+                    <span class="font-display font-bold text-2xl sm:text-3xl text-cyan-400">${m.away_score}</span>
+                  </div>
+                  <div class="mt-1.5 text-[11px]">${outcomeBadge}</div>
+                </div>
+
+                <div class="space-y-1">
+                  <div class="w-11 h-11 mx-auto rounded-full bg-pitch-900 border border-white/10 flex items-center justify-center font-display font-bold text-sm text-cyan-400">
+                    ${m.away_team.slice(0, 3).toUpperCase()}
+                  </div>
+                  <h3 class="font-bold text-sm sm:text-base text-white leading-tight">${m.away_team}</h3>
+                  <span class="text-[10px] uppercase tracking-wider text-slate-400">Away</span>
+                </div>
+              </div>
+
+              <!-- Win Probability Bar -->
+              <div class="space-y-1.5 bg-pitch-950/70 p-3 rounded-xl border border-white/5">
+                <div class="flex justify-between text-[11px] font-bold">
+                  <span class="text-emerald-400">1 (Home) ${m.home_win_prob}%</span>
+                  <span class="text-amber-400">X (Draw) ${m.draw_prob}%</span>
+                  <span class="text-cyan-400">2 (Away) ${m.away_win_prob}%</span>
+                </div>
+                <div class="w-full h-2.5 rounded-full overflow-hidden flex bg-pitch-800">
+                  <div style="width: ${m.home_win_prob}%" class="bg-emerald-500 transition-all duration-500"></div>
+                  <div style="width: ${m.draw_prob}%" class="bg-amber-400 transition-all duration-500"></div>
+                  <div style="width: ${m.away_win_prob}%" class="bg-cyan-500 transition-all duration-500"></div>
+                </div>
+              </div>
+
+              <!-- Score-Based Reasoning -->
+              <div class="mt-3.5 space-y-1.5">
+                <div class="text-[11px] font-semibold text-emerald-300 flex items-center gap-1.5">
+                  <span>&#9889; Faktor Kunci:</span>
+                  <span class="text-slate-300 font-normal">${m.key_factor}</span>
+                </div>
+                <p class="text-xs text-slate-300 leading-relaxed bg-white/[0.03] p-3 rounded-xl border border-white/5">
+                  ${m.score_reasoning}
+                </p>
+              </div>
+            </div>
+
+            <!-- Footer Action -->
+            <div class="pt-2 flex items-center justify-between">
+              <span class="text-[11px] text-slate-500">Probabilitas selaras skor</span>
+              <button onclick="openDeepAnalysis(${idx})" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-pitch-800 hover:bg-emerald-500 hover:text-slate-950 text-emerald-400 border border-emerald-500/30 transition flex items-center gap-1.5">
+                <span>Bedah Taktik AI</span>
+                <span>&rarr;</span>
+              </button>
+            </div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    function renderSampleShowcase() {
+      currentMatches = [
+        normalizeMatchPrediction({
+          league: 'CONTOH TAMPILAN — PASANG OPENROUTER KEY UNTUK DATA LIVE',
+          kickoff: '22:00 WIB',
+          home_team: 'Arsenal',
+          away_team: 'Liverpool',
+          home_score: 2,
+          away_score: 1,
+          home_win_prob: 49,
+          draw_prob: 27,
+          away_win_prob: 24,
+          confidence: 'Demo Mode',
+          key_factor: 'Dominasi penguasaan bola kandang & efektivitas bola mati',
+          score_reasoning: 'Tempel API Key OpenRouter (sk-or-v1-...) pada tombol di pojok kanan atas untuk menarik jadwal pertandingan nyata hari ini dan menganalisis prediksi skor otomatis.'
+        })
+      ];
+      renderMatches(currentMatches);
+    }
+  </script>
+</body>
+</html>
