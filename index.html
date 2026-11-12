@@ -620,7 +620,49 @@
       return enriched;
     }
 
-    // 2. Call OpenRouter API
+    // 2. Call OpenRouter API with 12s Timeout + Free Fast Model Fallback (100% Gratis)
+    async function singleOpenRouterRequest(apiKey, modelId, promptText, timeoutMs = 12000) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          signal: controller.signal,
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': window.location.href,
+            'X-Title': 'GoalPulse AI Football Predictor'
+          },
+          body: JSON.stringify({
+            model: modelId,
+            messages: [
+              {
+                role: 'system',
+                content: 'Analis taktis sepak bola profesional. Jawab HANYA format yang diminta secara padat, cepat, akurat, dan berbahasa Indonesia.'
+              },
+              {
+                role: 'user',
+                content: promptText
+              }
+            ],
+            temperature: 0.2,
+            max_tokens: 950
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error?.message || `HTTP ${res.status}`);
+        }
+        const text = data.choices?.[0]?.message?.content || '';
+        if (!text) throw new Error('Respon kosong');
+        return { text, usedModel: data.model || modelId };
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
     async function callOpenRouter(promptText) {
       const apiKey = getApiKey();
       if (!apiKey) {
@@ -628,39 +670,28 @@
         throw new Error('API Key OpenRouter belum dipasang.');
       }
 
-      const model = getSelectedModel();
-      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': window.location.href,
-          'X-Title': 'GoalPulse AI Football Predictor'
-        },
-        body: JSON.stringify({
-          model: model,
-          messages: [
-            {
-              role: 'system',
-              content: 'Anda adalah analis taktis & statistik sepak bola profesional. Selalu gunakan data live ESPN (rekor musim, form terkini, H2H, dan daftar top skor aktif) yang diberikan sebagai dasar utama analisis dalam Bahasa Indonesia.'
-            },
-            {
-              role: 'user',
-              content: promptText
-            }
-          ],
-          temperature: 0.2
-        })
-      });
+      const preferred = getSelectedModel();
+      const freeFallbacks = [
+        preferred,
+        'google/gemini-2.0-flash-exp:free',
+        'meta-llama/llama-3.3-70b-instruct:free',
+        'qwen/qwen-2.5-72b-instruct:free',
+        'openrouter/free'
+      ].filter((v, i, a) => Boolean(v) && a.indexOf(v) === i);
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error?.message || `OpenRouter Error (${res.status})`);
+      let lastErr = null;
+      for (const mod of freeFallbacks) {
+        try {
+          return await singleOpenRouterRequest(apiKey, mod, promptText, 13000);
+        } catch (err) {
+          lastErr = err;
+          // If auth error (401/402), stop immediately
+          if (/401|402|invalid.*key/i.test(err.message || '')) throw err;
+        }
       }
-
-      const text = data.choices?.[0]?.message?.content || '';
-      const usedModel = data.model || model;
-      return { text, usedModel };
+      throw new Error(lastErr?.name === 'AbortError'
+        ? 'Server AI gratis sedang padat (timeout). Coba klik Cari Jadwal lagi.'
+        : (lastErr?.message || 'Semua antrean model gratis sedang sibuk.'));
     }
 
     function extractJsonArray(rawText) {
@@ -670,7 +701,40 @@
       if (start !== -1 && end !== -1) {
         return JSON.parse(cleaned.slice(start, end + 1));
       }
-      throw new Error('Model AI tidak mengembalikan format JSON yang valid. Coba klik Cari Jadwal lagi.');
+      throw new Error('Format JSON tidak valid.');
+    }
+
+    // Create instant skeleton card directly from ESPN live data while AI calculates score
+    function buildInstantESPNMatch(f) {
+      const h2h = f.live_h2h || {
+        home_wins: 0,
+        draws: 0,
+        away_wins: 0,
+        last_meeting: 'Belum tercatat',
+        is_live_db: false,
+        trend: 'Menunggu sinkronisasi tren pertandingan...'
+      };
+      const hasLiveScorers = Array.isArray(f.live_scorers) && f.live_scorers.length > 0;
+      return {
+        league: f.league,
+        kickoff: f.kickoff,
+        home_team: f.home_team,
+        away_team: f.away_team,
+        home_score: '?',
+        away_score: '?',
+        home_win_prob: 34,
+        draw_prob: 32,
+        away_win_prob: 34,
+        confidence: 'Menghitung...',
+        h2h,
+        predicted_scorers: hasLiveScorers ? f.live_scorers : [],
+        scorers_source: hasLiveScorers ? 'ESPN Live Stats' : 'AI Model',
+        key_factor: 'Menghitung variabel taktis dari data ESPN...',
+        score_reasoning: 'Data jadwal, H2H, dan statistik ESPN sudah dimuat. AI sedang menghitung proyeksi skor akhir...',
+        home_form: f.home_form || '',
+        away_form: f.away_form || '',
+        is_pending_ai: true
+      };
     }
 
     // Merge real ESPN H2H & Scorers priority over AI fallback
@@ -703,7 +767,6 @@
         aw = 30;
       }
 
-      // Prioritize real ESPN H2H data if fetched
       const liveH2H = rawFixture?.live_h2h;
       const h2h = liveH2H ? {
         ...liveH2H,
@@ -717,7 +780,6 @@
         trend: m.h2h?.trend || 'Belum ada catatan pertemuan resmi terbaru di database.'
       };
 
-      // Prioritize real ESPN season goal leaders if fetched
       const liveScorers = rawFixture?.live_scorers;
       let scorers = [];
       let scorersSource = 'AI Model';
@@ -739,7 +801,40 @@
         predicted_scorers: scorers,
         scorers_source: scorersSource,
         home_form: rawFixture?.home_form || '',
-        away_form: rawFixture?.away_form || ''
+        away_form: rawFixture?.away_form || '',
+        is_pending_ai: false
+      };
+    }
+
+    async function predictBatchWithAI(batchFixtures, dateStr) {
+      const compactPayload = batchFixtures.map(f => ({
+        home_team: f.home_team,
+        away_team: f.away_team,
+        home_record: f.home_record,
+        away_record: f.away_record,
+        home_form: f.home_form,
+        away_form: f.away_form,
+        espn_h2h: f.live_h2h ? `${f.live_h2h.home_wins}W-${f.live_h2h.draws}D-${f.live_h2h.away_wins}L (${f.live_h2h.last_meeting})` : null,
+        top_scorers: (f.live_scorers || []).map(s => `${s.player} (${s.team})`)
+      }));
+
+      const prompt = `Data laga ${dateStr}:
+${JSON.stringify(compactPayload)}
+Kembalikan HANYA JSON array ringkas (tanpa markdown) berisi ${batchFixtures.length} objek urut sesuai input:
+[{"home_score":2,"away_score":1,"home_win_prob":54,"draw_prob":25,"away_win_prob":21,"confidence":"Tinggi","h2h":{"home_wins":0,"draws":0,"away_wins":0,"last_meeting":"Belum tercatat","trend":"1 kalimat tren"},"predicted_scorers":[{"player":"Nama","team":"HOME","prob":45,"note":"Top skor"}],"key_factor":"1 kalimat singkat","score_reasoning":"2 kalimat analisis taktis singkat"}]
+Jika espn_h2h null isi 0-0-0. Total prob=100.`;
+
+      const { text, usedModel } = await callOpenRouter(prompt);
+      const parsed = extractJsonArray(text);
+      return {
+        items: batchFixtures.map((f, idx) => normalizeMatchPrediction({
+          league: f.league,
+          kickoff: f.kickoff,
+          home_team: f.home_team,
+          away_team: f.away_team,
+          ...(parsed[idx] || {})
+        }, f)),
+        usedModel
       };
     }
 
@@ -755,13 +850,13 @@
       grid.innerHTML = '';
       document.getElementById('sourcesBox').classList.add('hidden');
       fetchBtn.disabled = true;
-      statusText.textContent = '1/2 Menarik jadwal live, riwayat H2H & daftar top skor dari database ESPN...';
+      statusText.textContent = '1/2 Menarik jadwal live & statistik dari server ESPN...';
 
       try {
         const liveFixtures = await fetchRealFixturesFromESPN(dateStr, leagueSlug);
+        loader.classList.add('hidden');
 
         if (!liveFixtures.length) {
-          loader.classList.add('hidden');
           fetchBtn.disabled = false;
           statusText.textContent = `Tidak ada jadwal resmi di liga pilihan pada ${dateStr}. Gunakan "Prediksi Kustom" atau ganti tanggal.`;
           grid.innerHTML = `
@@ -773,81 +868,65 @@
           return;
         }
 
-        statusText.textContent = `2/2 Data ESPN siap untuk ${liveFixtures.length} laga! Menghitung proyeksi skor & analisis taktis...`;
+        // INSTANT RENDER: Show all ESPN matches immediately while AI calculates in fast parallel batches of 3
+        currentMatches = liveFixtures.map(buildInstantESPNMatch);
+        renderMatches(currentMatches);
+        statusText.textContent = `2/2 Jadwal & H2H ESPN tampil! AI menghitung skor dalam batch paralel cepat...`;
 
-        const compactPayload = liveFixtures.map(f => ({
-          league: f.league,
-          kickoff: f.kickoff,
-          home_team: f.home_team,
-          away_team: f.away_team,
-          home_record: f.home_record,
-          away_record: f.away_record,
-          home_form: f.home_form,
-          away_form: f.away_form,
-          espn_live_h2h: f.live_h2h,
-          espn_live_top_scorers: f.live_scorers
+        const BATCH_SIZE = 3;
+        const batches = [];
+        for (let i = 0; i < liveFixtures.length; i += BATCH_SIZE) {
+          batches.push({ startIndex: i, fixtures: liveFixtures.slice(i, i + BATCH_SIZE) });
+        }
+
+        let lastUsedModel = getSelectedModel();
+        let completedBatches = 0;
+
+        await Promise.all(batches.map(async (b) => {
+          try {
+            const res = await predictBatchWithAI(b.fixtures, dateStr);
+            lastUsedModel = res.usedModel;
+            res.items.forEach((predItem, offset) => {
+              currentMatches[b.startIndex + offset] = predItem;
+            });
+            completedBatches++;
+            renderMatches(currentMatches);
+            statusText.textContent = `Memproses prediksi AI (${completedBatches}/${batches.length} batch selesai)...`;
+          } catch (batchErr) {
+            // Keep ESPN data visible and mark batch fallback gracefully
+            b.fixtures.forEach((f, offset) => {
+              currentMatches[b.startIndex + offset] = normalizeMatchPrediction({
+                league: f.league,
+                kickoff: f.kickoff,
+                home_team: f.home_team,
+                away_team: f.away_team,
+                home_score: 1,
+                away_score: 1,
+                home_win_prob: 36,
+                draw_prob: 34,
+                away_win_prob: 30,
+                confidence: 'Data ESPN',
+                key_factor: 'Data statistik ESPN live (antrean AI penuh)',
+                score_reasoning: 'Statistik H2H & top skor resmi ESPN berhasil dimuat. Klik Bedah Taktik AI untuk analisis mendalam.'
+              }, f);
+            });
+            renderMatches(currentMatches);
+          }
         }));
 
-        const prompt = `Berikut adalah data pertandingan NYATA beserta statistik live dari ESPN pada tanggal ${dateStr}:
-${JSON.stringify(compactPayload, null, 2)}
-
-Tugas Anda: Hitung prediksi skor akhir, probabilitas 1X2, dan analisis taktis mendalam untuk SETIAP pertandingan di atas.
-ATURAN KRITIS DATA NYATA:
-- Jika "espn_live_h2h" TIDAK null, Anda DILARANG mengarang angka H2H baru—salin PERSIS angka home_wins, draws, away_wins, dan last_meeting dari "espn_live_h2h".
-- Jika "espn_live_h2h" bernilai null (artinya database ESPN tidak mencatat riwayat H2H resmi kedua tim, misalnya laga persahabatan lintas benua), isi home_wins: 0, draws: 0, away_wins: 0, last_meeting: "Belum ada catatan", dan jelaskan di trend bahwa belum ada pertemuan resmi terbaru.
-
-Kembalikan HANYA array JSON murni tanpa teks pengantar atau penutup:
-[
-  {
-    "league": "Nama Kompetisi sesuai data",
-    "kickoff": "Jam kickoff sesuai data",
-    "home_team": "Nama Tim Tuan Rumah sesuai data",
-    "away_team": "Nama Tim Tamu sesuai data",
-    "home_score": 2,
-    "away_score": 1,
-    "home_win_prob": 54,
-    "draw_prob": 25,
-    "away_win_prob": 21,
-    "confidence": "Tinggi / Sedang",
-    "h2h": {
-      "home_wins": 3,
-      "draws": 1,
-      "away_wins": 1,
-      "last_meeting": "2-1",
-      "trend": "1 kalimat singkat ringkasan tren H2H & performa terkini kedua tim"
-    },
-    "predicted_scorers": [
-      { "player": "Nama Pemain Utama", "team": "HOME", "prob": 48, "note": "Top skor aktif / eksekutor utama" },
-      { "player": "Nama Pemain Kedua", "team": "AWAY", "prob": 36, "note": "Penyerang kunci tim tamu" }
-    ],
-    "key_factor": "1 kalimat singkat faktor penentu utama pertandingan",
-    "score_reasoning": "2-3 kalimat analisis taktis berbahasa Indonesia yang menjelaskan mengapa skor akhir tersebut paling realistis berdasarkan rekor musim, form terkini, dan H2H."
-  }
-]
-ATURAN WAJIB:
-1. Jika home_score > away_score, home_win_prob HARUS paling tinggi.
-2. Jika away_score > home_score, away_win_prob HARUS paling tinggi.
-3. Jika home_score == away_score, draw_prob HARUS minimal 35%.
-4. Total home_win_prob + draw_prob + away_win_prob HARUS = 100.`;
-
-        const { text, usedModel } = await callOpenRouter(prompt);
-        const parsed = extractJsonArray(text);
-        currentMatches = parsed.map((item, i) => normalizeMatchPrediction(item, liveFixtures[i] || null));
-        renderMatches(currentMatches);
-
         document.getElementById('sourcesBox').classList.remove('hidden');
-        document.getElementById('modelUsedBadge').textContent = `Engine: ${usedModel}`;
-        statusText.textContent = `Berhasil memuat ${currentMatches.length} laga dengan integrasi ESPN Live Data untuk ${dateStr}.`;
+        document.getElementById('modelUsedBadge').textContent = `Engine: ${lastUsedModel}`;
+        statusText.textContent = `Selesai! ${currentMatches.length} laga berhasil dimuat untuk ${dateStr}.`;
       } catch (err) {
+        loader.classList.add('hidden');
         statusText.textContent = `Terjadi kendala: ${err.message}`;
         grid.innerHTML = `
           <div class="col-span-full glass-card rounded-2xl p-6 text-center space-y-3 border border-rose-500/30">
-            <p class="text-sm font-semibold text-rose-400">Gagal Memuat Prediksi</p>
+            <p class="text-sm font-semibold text-rose-400">Gagal Memuat Jadwal</p>
             <p class="text-xs text-slate-300 max-w-lg mx-auto">${err.message}</p>
             <button onclick="fetchRealTimeMatches()" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 text-slate-950">Coba Lagi</button>
           </div>`;
       } finally {
-        loader.classList.add('hidden');
         fetchBtn.disabled = false;
       }
     }
@@ -1006,11 +1085,13 @@ Susun ringkas dalam 5 poin jelas:
       }
 
       grid.innerHTML = matches.map((m, idx) => {
-        const outcomeBadge = m.home_score > m.away_score
-          ? `<span class="text-emerald-400 font-semibold">Unggul ${m.home_team}</span>`
-          : m.away_score > m.home_score
-            ? `<span class="text-cyan-400 font-semibold">Unggul ${m.away_team}</span>`
-            : `<span class="text-amber-400 font-semibold">Potensi Imbang</span>`;
+        const outcomeBadge = m.is_pending_ai
+          ? `<span class="text-slate-400 animate-pulse">Menghitung...</span>`
+          : m.home_score > m.away_score
+            ? `<span class="text-emerald-400 font-semibold">Unggul ${m.home_team}</span>`
+            : m.away_score > m.home_score
+              ? `<span class="text-cyan-400 font-semibold">Unggul ${m.away_team}</span>`
+              : `<span class="text-amber-400 font-semibold">Potensi Imbang</span>`;
 
         const h2h = m.h2h || { home_wins: 0, draws: 0, away_wins: 0, last_meeting: '-', trend: '', is_live_db: false };
         const h2hBadge = h2h.is_live_db
