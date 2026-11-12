@@ -443,41 +443,58 @@
         if (res.ok) {
           const sumData = await res.json();
 
-          // Parse real Head-to-Head games from ESPN summary
-          const h2hSection = sumData.headToHeadGames?.[0]?.events || sumData.headToHead?.[0]?.events || [];
-          if (h2hSection.length > 0) {
+          // Parse real Head-to-Head games from ESPN summary (supports both array & nested objects)
+          let h2hEvents = [];
+          if (Array.isArray(sumData.headToHeadGames)) {
+            sumData.headToHeadGames.forEach(block => {
+              if (Array.isArray(block.events)) h2hEvents.push(...block.events);
+            });
+          }
+          if (h2hEvents.length === 0 && Array.isArray(sumData.headToHead)) {
+            sumData.headToHead.forEach(block => {
+              if (Array.isArray(block.events)) h2hEvents.push(...block.events);
+            });
+          }
+
+          // Filter only completed games and sort newest first
+          const completedH2H = h2hEvents
+            .filter(g => {
+              const comps = g.competitions?.[0]?.competitors || g.competitors || [];
+              return comps.length >= 2 && comps.every(c => c.score !== undefined && c.score !== null && c.score !== '');
+            })
+            .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+
+          if (completedH2H.length > 0) {
             let hWins = 0, aWins = 0, draws = 0;
-            const recent = h2hSection.slice(0, 5);
+            const recent = completedH2H.slice(0, 5);
+            const matchLog = [];
+
             recent.forEach(g => {
               const comps = g.competitions?.[0]?.competitors || g.competitors || [];
-              const cHome = comps.find(c => String(c.id || c.team?.id) === String(homeId));
-              const cAway = comps.find(c => String(c.id || c.team?.id) === String(awayId));
-              if (cHome && cAway && cHome.score !== undefined && cAway.score !== undefined) {
-                const sH = Number(cHome.score);
-                const sA = Number(cAway.score);
-                if (sH > sA) hWins++;
-                else if (sA > sH) aWins++;
-                else draws++;
+              const cHome = comps.find(c => String(c.team?.id || c.id) === String(homeId));
+              const cAway = comps.find(c => String(c.team?.id || c.id) === String(awayId));
+              if (cHome && cAway) {
+                const sH = Number(typeof cHome.score === 'object' ? cHome.score.value : cHome.score);
+                const sA = Number(typeof cAway.score === 'object' ? cAway.score.value : cAway.score);
+                if (!isNaN(sH) && !isNaN(sA)) {
+                  if (sH > sA) hWins++;
+                  else if (sA > sH) aWins++;
+                  else draws++;
+                  const yr = g.date ? new Date(g.date).getFullYear() : '';
+                  matchLog.push(`${sH}-${sA}${yr ? ' (' + yr + ')' : ''}`);
+                }
               }
             });
-
-            const latest = recent[0];
-            const lComps = latest?.competitions?.[0]?.competitors || latest?.competitors || [];
-            const lH = lComps.find(c => String(c.id || c.team?.id) === String(homeId));
-            const lA = lComps.find(c => String(c.id || c.team?.id) === String(awayId));
-            const yearStr = latest?.date ? new Date(latest.date).getFullYear() : '';
-            const lastScoreStr = (lH && lA && lH.score !== undefined)
-              ? `${lH.score}-${lA.score}${yearStr ? ' (' + yearStr + ')' : ''}`
-              : 'Tercatat di ESPN';
 
             if (hWins + aWins + draws > 0) {
               realH2H = {
                 home_wins: hWins,
                 draws: draws,
                 away_wins: aWins,
-                last_meeting: lastScoreStr,
+                last_meeting: matchLog[0] || 'Tercatat',
+                history_list: matchLog.join(', '),
                 is_live_db: true,
-                trend: `Data riwayat resmi ESPN (${hWins + aWins + draws} pertemuan): ${homeName} menang ${hWins}x, imbang ${draws}x, ${awayName} menang ${aWins}x.`
+                trend: `Riwayat resmi ESPN (${hWins + aWins + draws} pertemuan terbaru): ${matchLog.join(' • ')}.`
               };
             }
           }
@@ -687,14 +704,14 @@
       const liveH2H = rawFixture?.live_h2h;
       const h2h = liveH2H ? {
         ...liveH2H,
-        trend: m.h2h?.trend || liveH2H.trend
+        trend: liveH2H.trend
       } : {
-        home_wins: m.h2h?.home_wins ?? 2,
-        draws: m.h2h?.draws ?? 1,
-        away_wins: m.h2h?.away_wins ?? 2,
-        last_meeting: m.h2h?.last_meeting || 'Tercatat',
+        home_wins: Number(m.h2h?.home_wins ?? 0),
+        draws: Number(m.h2h?.draws ?? 0),
+        away_wins: Number(m.h2h?.away_wins ?? 0),
+        last_meeting: m.h2h?.last_meeting || 'Belum tercatat',
         is_live_db: false,
-        trend: m.h2h?.trend || 'Rekor pertemuan kedua tim cukup berimbang.'
+        trend: m.h2h?.trend || 'Belum ada catatan pertemuan resmi terbaru di database.'
       };
 
       // Prioritize real ESPN season goal leaders if fetched
@@ -772,7 +789,9 @@
 ${JSON.stringify(compactPayload, null, 2)}
 
 Tugas Anda: Hitung prediksi skor akhir, probabilitas 1X2, dan analisis taktis mendalam untuk SETIAP pertandingan di atas.
-Jika "espn_live_h2h" atau "espn_live_top_scorers" sudah tersedia (tidak null/kosong), WAJIB gunakan data pemain dan angka H2H nyata tersebut dalam analisis Anda! Jika kosong, isi berdasarkan pengetahuan statistik terkini.
+ATURAN KRITIS DATA NYATA:
+- Jika "espn_live_h2h" TIDAK null, Anda DILARANG mengarang angka H2H baru—salin PERSIS angka home_wins, draws, away_wins, dan last_meeting dari "espn_live_h2h".
+- Jika "espn_live_h2h" bernilai null (artinya database ESPN tidak mencatat riwayat H2H resmi kedua tim, misalnya laga persahabatan lintas benua), isi home_wins: 0, draws: 0, away_wins: 0, last_meeting: "Belum ada catatan", dan jelaskan di trend bahwa belum ada pertemuan resmi terbaru.
 
 Kembalikan HANYA array JSON murni tanpa teks pengantar atau penutup:
 [
