@@ -1,1297 +1,141 @@
 <!DOCTYPE html>
-<html lang="id" class="dark">
+<html lang="id">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GoalPulse AI — Live ESPN H2H, Scorers & Tactical Predictor</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          fontFamily: {
-            display: ['"Chakra Petch"', 'sans-serif'],
-            sans: ['Inter', 'sans-serif'],
-          },
-          colors: {
-            pitch: {
-              950: '#060a0f',
-              900: '#0b121b',
-              800: '#121d2b',
-              700: '#1b2b40',
-            },
-            neon: {
-              green: '#10b981',
-              emerald: '#34d399',
-              amber: '#f59e0b',
-              rose: '#f43f5e',
-              cyan: '#06b6d4'
-            }
-          }
-        }
-      }
-    }
-  </script>
-  <style>
-    body {
-      background-color: #060a0f;
-      background-image:
-        radial-gradient(circle at 15% 10%, rgba(16, 185, 129, 0.08), transparent 35%),
-        radial-gradient(circle at 85% 20%, rgba(6, 182, 212, 0.07), transparent 35%);
-      color: #f1f5f9;
-    }
-    .glass-card {
-      background: rgba(18, 29, 43, 0.78);
-      backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-    }
-    .glass-card:hover {
-      border-color: rgba(16, 185, 129, 0.35);
-    }
-    .stadium-grid {
-      background-size: 32px 32px;
-      background-image: linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-                        linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
-    }
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #060a0f; }
-    ::-webkit-scrollbar-thumb { background: #1b2b40; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #10b981; }
-  </style>
-</head>
-<body class="min-h-screen font-sans stadium-grid antialiased selection:bg-emerald-500 selection:text-slate-950">
-
-  <!-- Top Navbar -->
-  <header class="sticky top-0 z-40 border-b border-white/10 bg-pitch-950/90 backdrop-blur-md">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-          <svg class="w-6 h-6 text-slate-950" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="10"/>
-            <polygon points="12 7 16.5 10.2 14.8 15.5 9.2 15.5 7.5 10.2"/>
-          </svg>
-        </div>
-        <div>
-          <div class="flex items-center gap-2">
-            <span class="font-display font-bold text-xl tracking-wide text-white">GOALPULSE <span class="text-emerald-400">AI</span></span>
-            <span class="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Live Data Feed
-            </span>
-          </div>
-          <p class="text-[11px] text-slate-400 hidden sm:block">ESPN Live H2H & Top Scorers Database + OpenRouter Tactical Engine</p>
-        </div>
-      </div>
-
-      <div class="flex items-center gap-2.5">
-        <button onclick="openCustomModal()" class="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-pitch-800 hover:bg-pitch-700 text-slate-200 border border-white/10 transition flex items-center gap-1.5">
-          <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
-          <span>Prediksi Kustom</span>
-        </button>
-
-        <button id="apiKeyStatusBtn" onclick="openApiModal()" class="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 transition flex items-center gap-1.5">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
-          <span id="apiKeyBtnLabel">Atur OpenRouter Key</span>
-        </button>
-      </div>
-    </div>
-  </header>
-
-  <!-- Main Content -->
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-
-    <!-- Control Bar: Date & League Filter -->
-    <section class="glass-card rounded-2xl p-4 sm:p-5 shadow-xl">
-      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoalPulse AI - Football Predictor</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #121212; color: #ffffff; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { text-align: center; color: #00ff88; margin-bottom: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; }
+        .input-group { margin-bottom: 20px; }
+        textarea { width: 100%; height: 120px; background: #1e1e24; color: #fff; border: 1px solid #333; border-radius: 8px; padding: 15px; font-size: 16px; resize: vertical; }
+        textarea:focus { outline: none; border-color: #00ff88; }
+        button { display: block; width: 100%; background: #00ff88; color: #121212; border: none; padding: 15px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer; transition: background 0.3s; }
+        button:hover { background: #00cc6a; }
+        #loading-indicator { display: none; text-align: center; margin: 20px 0; color: #ffaa00; font-weight: bold; }
         
-        <!-- Quick Date Controls -->
-        <div class="flex flex-wrap items-center gap-2">
-          <button onclick="setQuickDate(-1)" class="date-pill px-3.5 py-2 rounded-xl text-xs font-semibold bg-pitch-900 hover:bg-pitch-700 border border-white/10 text-slate-300 transition">Kemarin</button>
-          <button onclick="setQuickDate(0)" class="date-pill px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-500 text-slate-950 border border-emerald-400 shadow-md shadow-emerald-500/20 transition">Hari Ini</button>
-          <button onclick="setQuickDate(1)" class="date-pill px-3.5 py-2 rounded-xl text-xs font-semibold bg-pitch-900 hover:bg-pitch-700 border border-white/10 text-slate-300 transition">Besok</button>
-          
-          <div class="relative flex items-center">
-            <input type="date" id="matchDateInput" onchange="onDateInputChange()" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-pitch-900 border border-white/15 text-white focus:outline-none focus:border-emerald-400" />
-          </div>
+        /* Dark Sporty Mode Card CSS */
+        .match-card { background: #1e1e24; border: 1px solid #333; border-radius: 12px; padding: 20px; margin-bottom: 15px; color: #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .match-title { text-align: center; font-size: 20px; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .score-prediction { font-size: 32px; font-weight: 800; color: #00ff88; text-align: center; margin: 10px 0; }
+        .market-badges { display: flex; gap: 10px; justify-content: center; margin-bottom: 15px; flex-wrap: wrap; }
+        .badge { padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+        .badge.winner { background: #ffaa00; color: #000; }
+        .badge.ou { background: #0077ff; color: #fff; }
+        .badge.hdp { background: #ff3366; color: #fff; }
+        .analysis-box { background: #2a2a35; padding: 12px; border-left: 4px solid #00ff88; border-radius: 4px; font-size: 14px; line-height: 1.5; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚽ GoalPulse AI</h1>
+        <div class="input-group">
+            <textarea id="match-input" placeholder="Masukkan daftar pertandingan di sini (Contoh: 1. Mesir vs Malawi...)"></textarea>
         </div>
-
-        <!-- League Selector & Fetch Button -->
-        <div class="flex flex-wrap items-center gap-2.5">
-          <select id="leagueSelect" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium bg-pitch-900 border border-white/15 text-slate-200 focus:outline-none focus:border-emerald-400">
-            <option value="ALL">Semua Kompetisi Utama</option>
-            <option value="eng.1">Premier League (Inggris)</option>
-            <option value="esp.1">La Liga (Spanyol)</option>
-            <option value="ita.1">Serie A (Italia)</option>
-            <option value="ger.1">Bundesliga (Jerman)</option>
-            <option value="fra.1">Ligue 1 (Prancis)</option>
-            <option value="uefa.champions">UEFA Champions League</option>
-            <option value="uefa.europa">UEFA Europa League</option>
-            <option value="uefa.nations">UEFA Nations League</option>
-            <option value="idn.1">BRI Liga 1 Indonesia</option>
-            <option value="fifa.worldq.afc">Kualifikasi Piala Dunia (AFC / Timnas)</option>
-            <option value="fifa.friendly">FIFA International Friendly</option>
-          </select>
-
-          <button onclick="fetchRealTimeMatches()" id="fetchBtn" class="px-5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 shadow-lg shadow-emerald-500/25 transition flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.3" viewBox="0 0 24 24"><path d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"/></svg>
-            <span>Cari Jadwal & Prediksi Live</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Status Banner -->
-      <div class="mt-4 pt-3.5 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
-        <div class="flex items-center gap-2">
-          <span class="font-semibold text-slate-200" id="activeDateDisplay">Memuat tanggal...</span>
-          <span>•</span>
-          <span id="statusText">Siap menarik jadwal, H2H nyata & top skor aktif langsung dari database ESPN.</span>
-        </div>
-        <div class="text-[11px] text-cyan-400/90 font-medium" id="activeModelDisplay">
-          Model: openrouter/free
-        </div>
-      </div>
-    </section>
-
-    <!-- API Key Warning Banner -->
-    <div id="noKeyBanner" class="hidden rounded-2xl p-4 bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-      <div class="flex items-start gap-3">
-        <div class="p-2 rounded-lg bg-amber-500/20 text-amber-400 mt-0.5">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
-        </div>
-        <div>
-          <h3 class="text-sm font-bold text-amber-300">API Key OpenRouter Belum Terpasang</h3>
-          <p class="text-xs text-slate-300 mt-0.5">Pasang API Key OpenRouter (<code>sk-or-v1-...</code>) dari <a href="https://openrouter.ai/keys" target="_blank" class="underline text-amber-300 font-semibold">openrouter.ai/keys</a> agar AI dapat menghitung prediksi skor dan analisis taktis berdasarkan data live ESPN.</p>
-        </div>
-      </div>
-      <button onclick="openApiModal()" class="shrink-0 px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 transition">
-        Pasang OpenRouter Key
-      </button>
+        <button onclick="startAnalysis()">Mulai Analisa</button>
+        
+        <div id="loading-indicator">⏳ GoalPulse AI sedang membedah data pertandingan...</div>
+        
+        <div id="prediction-results"></div>
     </div>
 
-    <!-- Loading Skeleton -->
-    <div id="loadingContainer" class="hidden grid grid-cols-1 lg:grid-cols-2 gap-5">
-      <div class="glass-card rounded-2xl p-6 animate-pulse space-y-4">
-        <div class="h-4 bg-slate-700/60 rounded w-1/3"></div>
-        <div class="flex justify-between items-center py-3">
-          <div class="h-6 bg-slate-700/60 rounded w-1/4"></div>
-          <div class="h-10 bg-emerald-500/20 rounded-xl w-20"></div>
-          <div class="h-6 bg-slate-700/60 rounded w-1/4"></div>
-        </div>
-        <div class="h-12 bg-slate-800/80 rounded-xl w-full"></div>
-        <div class="h-16 bg-slate-800/80 rounded-xl w-full"></div>
-      </div>
-      <div class="glass-card rounded-2xl p-6 animate-pulse space-y-4">
-        <div class="h-4 bg-slate-700/60 rounded w-1/3"></div>
-        <div class="flex justify-between items-center py-3">
-          <div class="h-6 bg-slate-700/60 rounded w-1/4"></div>
-          <div class="h-10 bg-emerald-500/20 rounded-xl w-20"></div>
-          <div class="h-6 bg-slate-700/60 rounded w-1/4"></div>
-        </div>
-        <div class="h-12 bg-slate-800/80 rounded-xl w-full"></div>
-        <div class="h-16 bg-slate-800/80 rounded-xl w-full"></div>
-      </div>
-    </div>
-
-    <!-- Matches Grid -->
-    <section id="matchesGrid" class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-      <!-- Cards injected dynamically -->
-    </section>
-
-    <!-- Data Source Footer -->
-    <div id="sourcesBox" class="hidden glass-card rounded-xl p-4 text-xs text-slate-400 flex flex-wrap items-center justify-between gap-2">
-      <span><strong class="text-slate-300">Sumber Data Live:</strong> ESPN Scoreboard, Match Summary H2H & Season Leaders API (Tanpa Perlu API Key Tambahan)</span>
-      <span id="modelUsedBadge" class="text-cyan-400 font-medium"></span>
-    </div>
-
-  </main>
-
-  <!-- OpenRouter API Key Settings Modal -->
-  <div id="apiModal" class="fixed inset-0 z-50 hidden bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="glass-card rounded-2xl max-w-md w-full p-6 border border-white/15 shadow-2xl space-y-4">
-      <div class="flex items-center justify-between">
-        <h2 class="font-display font-bold text-lg text-white">Pengaturan OpenRouter API</h2>
-        <button onclick="closeApiModal()" class="text-slate-400 hover:text-white text-xl leading-none">&times;</button>
-      </div>
-      <p class="text-xs text-slate-300 leading-relaxed">
-        Data jadwal, H2H, dan pencetak gol ditarik otomatis dari database ESPN. API Key OpenRouter hanya dipakai untuk menghitung proyeksi skor & analisis taktis.
-      </p>
-      <div class="space-y-3">
-        <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">OpenRouter API Key</label>
-          <input type="password" id="apiKeyInput" placeholder="sk-or-v1-..." class="w-full px-3.5 py-2.5 rounded-xl bg-pitch-950 border border-white/15 text-sm text-white focus:outline-none focus:border-emerald-400" />
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Pilihan Model OpenRouter (Gratis)</label>
-          <select id="modelSelect" class="w-full px-3.5 py-2.5 rounded-xl bg-pitch-950 border border-white/15 text-xs text-white focus:outline-none focus:border-emerald-400">
-            <option value="openrouter/free">Auto Free Router (openrouter/free — Paling Stabil)</option>
-            <option value="google/gemini-2.0-flash-exp:free">Google: Gemini 2.0 Flash (Free)</option>
-            <option value="meta-llama/llama-3.3-70b-instruct:free">Meta: Llama 3.3 70B Instruct (Free)</option>
-            <option value="deepseek/deepseek-chat-v3-0324:free">DeepSeek: V3 0324 (Free)</option>
-            <option value="qwen/qwen-2.5-72b-instruct:free">Qwen: 2.5 72B Instruct (Free)</option>
-          </select>
-        </div>
-        <a href="https://openrouter.ai/keys" target="_blank" class="inline-block text-[11px] text-cyan-400 hover:underline">
-          &rarr; Kelola atau buat key gratis di openrouter.ai/keys
-        </a>
-      </div>
-      <div class="flex items-center justify-end gap-2 pt-2">
-        <button onclick="clearApiKey()" class="px-3.5 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition">Hapus Key</button>
-        <button onclick="saveApiKey()" class="px-5 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition">Simpan & Aktifkan</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Custom Match Modal -->
-  <div id="customModal" class="fixed inset-0 z-50 hidden bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="glass-card rounded-2xl max-w-md w-full p-6 border border-white/15 shadow-2xl space-y-4">
-      <div class="flex items-center justify-between">
-        <h2 class="font-display font-bold text-lg text-white">Prediksi Pertandingan Kustom</h2>
-        <button onclick="closeCustomModal()" class="text-slate-400 hover:text-white text-xl leading-none">&times;</button>
-      </div>
-      <p class="text-xs text-slate-400">Masukkan dua tim untuk dianalisis prediksi skor, rekor Head-to-Head, dan kandidat pencetak golnya.</p>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Tim Tuan Rumah (Home)</label>
-          <input type="text" id="customHomeInput" placeholder="Contoh: Arsenal" class="w-full px-3.5 py-2 rounded-xl bg-pitch-950 border border-white/15 text-sm text-white focus:outline-none focus:border-emerald-400" />
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Tim Tamu (Away)</label>
-          <input type="text" id="customAwayInput" placeholder="Contoh: Real Madrid" class="w-full px-3.5 py-2 rounded-xl bg-pitch-950 border border-white/15 text-sm text-white focus:outline-none focus:border-emerald-400" />
-        </div>
-      </div>
-      <div>
-        <label class="block text-xs font-semibold text-slate-300 mb-1">Kompetisi / Konteks (Opsional)</label>
-        <input type="text" id="customCompInput" placeholder="Contoh: UEFA Champions League" class="w-full px-3.5 py-2 rounded-xl bg-pitch-950 border border-white/15 text-sm text-white focus:outline-none focus:border-emerald-400" />
-      </div>
-      <div class="flex justify-end gap-2 pt-2">
-        <button onclick="closeCustomModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-white/5">Batal</button>
-        <button onclick="runCustomPrediction()" id="customSubmitBtn" class="px-5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950">Analisis Lengkap</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Deep Live Analysis Modal -->
-  <div id="deepModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="glass-card rounded-2xl max-w-2xl w-full max-h-[85vh] flex flex-col border border-white/15 shadow-2xl">
-      <div class="p-5 border-b border-white/10 flex items-center justify-between">
-        <div>
-          <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Deep Tactical, Live H2H & Goalscorer Report</span>
-          <h3 id="deepModalTitle" class="font-display font-bold text-lg text-white mt-0.5">Memuat Analisis...</h3>
-        </div>
-        <button onclick="closeDeepModal()" class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
-      </div>
-      <div id="deepModalBody" class="p-5 overflow-y-auto text-sm text-slate-200 space-y-3 leading-relaxed">
-      </div>
-    </div>
-  </div>
-
-  <script>
-    const STORAGE_KEY = 'goalpulse_openrouter_api_key';
-    const STORAGE_MODEL = 'goalpulse_openrouter_model';
-    let currentMatches = [];
-
-    const LEAGUES_CONFIG = [
-      { slug: 'eng.1', name: 'English Premier League' },
-      { slug: 'esp.1', name: 'Spanish La Liga' },
-      { slug: 'ita.1', name: 'Italian Serie A' },
-      { slug: 'ger.1', name: 'German Bundesliga' },
-      { slug: 'fra.1', name: 'French Ligue 1' },
-      { slug: 'uefa.champions', name: 'UEFA Champions League' },
-      { slug: 'uefa.europa', name: 'UEFA Europa League' },
-      { slug: 'uefa.nations', name: 'UEFA Nations League' },
-      { slug: 'idn.1', name: 'BRI Liga 1 Indonesia' },
-      { slug: 'fifa.worldq.afc', name: 'FIFA World Cup Qualifiers (AFC)' },
-      { slug: 'fifa.friendly', name: 'FIFA International Friendly' }
-    ];
-
-    window.addEventListener('DOMContentLoaded', () => {
-      setQuickDate(0, false);
-      updateApiKeyUI();
-      const savedKey = getApiKey();
-      if (savedKey) {
-        fetchRealTimeMatches();
-      } else {
-        renderSampleShowcase();
-      }
-    });
-
-    function getApiKey() {
-      return localStorage.getItem(STORAGE_KEY) || '';
+    <script>
+        const systemPrompt = `Kamu adalah analis sepak bola profesional. 
+Tugasmu memprediksi pertandingan dengan presisi tinggi berdasarkan statistik, H2H, dan kekuatan tim terkini.
+WAJIB balas HANYA dalam format JSON yang valid tanpa teks markdown lain, dengan struktur berikut:
+{
+  "prediksi": [
+    {
+      "pertandingan": "Tim A vs Tim B",
+      "pemenang": "Nama Tim atau Imbang",
+      "skor": "X - Y",
+      "over_under": "Over 2.5 atau Under 2.5",
+      "handicap": "Rekomendasi Asian Handicap (misal: Tim A -1.5)",
+      "analisa": "Alasan taktis singkat maksimal 3 kalimat."
     }
+  ]
+}`;
 
-    function getSelectedModel() {
-      return localStorage.getItem(STORAGE_MODEL) || 'openrouter/free';
-    }
+        async function getPrediction(matchData) {
+            // INGAT BANG: Ganti teks di bawah ini dengan API Key OpenRouter Abang yang asli!
+            const apiKey = "API_KEY_OPENROUTER_ABANG"; 
+            
+            document.getElementById('loading-indicator').style.display = 'block';
+            document.getElementById('prediction-results').innerHTML = '';
 
-    function updateApiKeyUI() {
-      const key = getApiKey();
-      const model = getSelectedModel();
-      const banner = document.getElementById('noKeyBanner');
-      const label = document.getElementById('apiKeyBtnLabel');
-      const btn = document.getElementById('apiKeyStatusBtn');
-      const modelDisp = document.getElementById('activeModelDisplay');
+            try {
+                const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${apiKey}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        model: "google/gemini-flash-1.5",
+                        messages: [
+                            { "role": "system", "content": systemPrompt },
+                            { "role": "user", "content": `Tolong analisa pertandingan ini:\n${matchData}` }
+                        ],
+                        response_format: { type: "json_object" }
+                    })
+                });
 
-      modelDisp.textContent = `Model: ${model}`;
-
-      if (key) {
-        banner.classList.add('hidden');
-        label.textContent = 'OpenRouter Aktif';
-        btn.className = 'px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 transition flex items-center gap-1.5';
-      } else {
-        banner.classList.remove('hidden');
-        label.textContent = 'Pasang OpenRouter Key';
-        btn.className = 'px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 transition flex items-center gap-1.5';
-      }
-    }
-
-    function openApiModal() {
-      document.getElementById('apiKeyInput').value = getApiKey();
-      document.getElementById('modelSelect').value = getSelectedModel();
-      document.getElementById('apiModal').classList.remove('hidden');
-    }
-    function closeApiModal() {
-      document.getElementById('apiModal').classList.add('hidden');
-    }
-    function saveApiKey() {
-      const val = document.getElementById('apiKeyInput').value.trim();
-      const mod = document.getElementById('modelSelect').value;
-      if (!val) return alert('Masukkan API Key OpenRouter terlebih dahulu.');
-      localStorage.setItem(STORAGE_KEY, val);
-      localStorage.setItem(STORAGE_MODEL, mod);
-      updateApiKeyUI();
-      closeApiModal();
-      fetchRealTimeMatches();
-    }
-    function clearApiKey() {
-      localStorage.removeItem(STORAGE_KEY);
-      document.getElementById('apiKeyInput').value = '';
-      updateApiKeyUI();
-      closeApiModal();
-    }
-
-    function openCustomModal() {
-      document.getElementById('customModal').classList.remove('hidden');
-    }
-    function closeCustomModal() {
-      document.getElementById('customModal').classList.add('hidden');
-    }
-    function closeDeepModal() {
-      document.getElementById('deepModal').classList.add('hidden');
-    }
-
-    function setQuickDate(offsetDays, autoFetch = true) {
-      const d = new Date();
-      d.setDate(d.getDate() + offsetDays);
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      const iso = `${yyyy}-${mm}-${dd}`;
-      document.getElementById('matchDateInput').value = iso;
-      updateDateLabel(iso);
-
-      document.querySelectorAll('.date-pill').forEach((btn, idx) => {
-        const active = (idx === 0 && offsetDays === -1) || (idx === 1 && offsetDays === 0) || (idx === 2 && offsetDays === 1);
-        btn.className = active
-          ? 'date-pill px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-500 text-slate-950 border border-emerald-400 shadow-md shadow-emerald-500/20 transition'
-          : 'date-pill px-3.5 py-2 rounded-xl text-xs font-semibold bg-pitch-900 hover:bg-pitch-700 border border-white/10 text-slate-300 transition';
-      });
-
-      if (autoFetch && getApiKey()) {
-        fetchRealTimeMatches();
-      }
-    }
-
-    function onDateInputChange() {
-      const iso = document.getElementById('matchDateInput').value;
-      updateDateLabel(iso);
-      document.querySelectorAll('.date-pill').forEach(btn => {
-        btn.className = 'date-pill px-3.5 py-2 rounded-xl text-xs font-semibold bg-pitch-900 hover:bg-pitch-700 border border-white/10 text-slate-300 transition';
-      });
-      if (getApiKey()) fetchRealTimeMatches();
-    }
-
-    function updateDateLabel(isoDate) {
-      if (!isoDate) return;
-      const [y, m, d] = isoDate.split('-').map(Number);
-      const dateObj = new Date(y, m - 1, d);
-      const formatted = dateObj.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-      document.getElementById('activeDateDisplay').textContent = formatted;
-    }
-
-    // 1A. Fetch Real-Time Match Summary (Actual H2H & Top Scorers) from ESPN Event Summary API
-    async function fetchESPNMatchDetails(leagueSlug, eventId, homeId, awayId, homeName, awayName, scoreboardLeaders) {
-      let realH2H = null;
-      let realScorers = [];
-
-      // Extract active goal/point leaders directly from scoreboard competitors if available
-      if (Array.isArray(scoreboardLeaders)) {
-        scoreboardLeaders.forEach(item => {
-          if (item && item.player) {
-            realScorers.push({
-              player: item.player,
-              team: item.team,
-              prob: item.prob || 45,
-              note: item.note || 'Top Skor Aktif Musim Ini (ESPN Live)'
-            });
-          }
-        });
-      }
-
-      try {
-        const sumUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueSlug}/summary?event=${eventId}`;
-        const res = await fetch(sumUrl);
-        if (res.ok) {
-          const sumData = await res.json();
-
-          // Parse real Head-to-Head games from ESPN summary (supports both array & nested objects)
-          let h2hEvents = [];
-          if (Array.isArray(sumData.headToHeadGames)) {
-            sumData.headToHeadGames.forEach(block => {
-              if (Array.isArray(block.events)) h2hEvents.push(...block.events);
-            });
-          }
-          if (h2hEvents.length === 0 && Array.isArray(sumData.headToHead)) {
-            sumData.headToHead.forEach(block => {
-              if (Array.isArray(block.events)) h2hEvents.push(...block.events);
-            });
-          }
-
-          // Filter only completed games and sort newest first
-          const completedH2H = h2hEvents
-            .filter(g => {
-              const comps = g.competitions?.[0]?.competitors || g.competitors || [];
-              return comps.length >= 2 && comps.every(c => c.score !== undefined && c.score !== null && c.score !== '');
-            })
-            .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
-
-          if (completedH2H.length > 0) {
-            let hWins = 0, aWins = 0, draws = 0;
-            const recent = completedH2H.slice(0, 5);
-            const matchLog = [];
-
-            recent.forEach(g => {
-              const comps = g.competitions?.[0]?.competitors || g.competitors || [];
-              const cHome = comps.find(c => String(c.team?.id || c.id) === String(homeId));
-              const cAway = comps.find(c => String(c.team?.id || c.id) === String(awayId));
-              if (cHome && cAway) {
-                const sH = Number(typeof cHome.score === 'object' ? cHome.score.value : cHome.score);
-                const sA = Number(typeof cAway.score === 'object' ? cAway.score.value : cAway.score);
-                if (!isNaN(sH) && !isNaN(sA)) {
-                  if (sH > sA) hWins++;
-                  else if (sA > sH) aWins++;
-                  else draws++;
-                  const yr = g.date ? new Date(g.date).getFullYear() : '';
-                  matchLog.push(`${sH}-${sA}${yr ? ' (' + yr + ')' : ''}`);
+                const data = await response.json();
+                
+                if(data.error) {
+                    throw new Error(data.error.message || "Gagal menghubungi OpenRouter");
                 }
-              }
-            });
 
-            if (hWins + aWins + draws > 0) {
-              realH2H = {
-                home_wins: hWins,
-                draws: draws,
-                away_wins: aWins,
-                last_meeting: matchLog[0] || 'Tercatat',
-                history_list: matchLog.join(', '),
-                is_live_db: true,
-                trend: `Riwayat resmi ESPN (${hWins + aWins + draws} pertemuan terbaru): ${matchLog.join(' • ')}.`
-              };
+                const hasil = JSON.parse(data.choices[0].message.content);
+                
+                document.getElementById('loading-indicator').style.display = 'none';
+                renderPredictionUI(hasil.prediksi);
+
+            } catch (error) {
+                console.error("API error Bang:", error);
+                document.getElementById('loading-indicator').style.display = 'block';
+                document.getElementById('loading-indicator').style.color = '#ff3366';
+                document.getElementById('loading-indicator').innerHTML = `⚠️ Gagal memuat prediksi: ${error.message}. Cek koneksi atau API Key.`;
             }
-          }
-
-          // Parse team season goal leaders from ESPN summary leaders
-          const teamLeaders = sumData.leaders || [];
-          teamLeaders.forEach(tl => {
-            const tId = String(tl.team?.id || '');
-            const side = tId === String(homeId) ? 'HOME' : (tId === String(awayId) ? 'AWAY' : null);
-            if (!side) return;
-            const cats = tl.leaders || [];
-            const goalCat = cats.find(c => /goal/i.test(c.name || c.displayName || '')) || cats[0];
-            const topAthlete = goalCat?.leaders?.[0];
-            if (topAthlete?.athlete?.displayName) {
-              const pName = topAthlete.athlete.displayName;
-              const statVal = topAthlete.displayValue || '';
-              if (!realScorers.some(s => s.player === pName)) {
-                realScorers.push({
-                  player: pName,
-                  team: side,
-                  prob: side === 'HOME' ? 48 : 41,
-                  note: statVal ? `Statistik Live: ${statVal}` : 'Top Skor Klub (ESPN Live)'
-                });
-              }
-            }
-          });
-        }
-      } catch (e) {
-        // Fallback smoothly if summary endpoint omits a minor league
-      }
-
-      return { realH2H, realScorers: realScorers.slice(0, 3) };
-    }
-
-    // 1B. Fetch Real-Time Fixtures + Deep ESPN H2H & Leaders
-    async function fetchRealFixturesFromESPN(isoDate, leagueFilter) {
-      const yyyymmdd = isoDate.replace(/-/g, '');
-      const targets = leagueFilter === 'ALL'
-        ? LEAGUES_CONFIG
-        : LEAGUES_CONFIG.filter(l => l.slug === leagueFilter);
-
-      const requests = targets.map(async (lg) => {
-        try {
-          const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${lg.slug}/scoreboard?dates=${yyyymmdd}`;
-          const res = await fetch(url);
-          if (!res.ok) return [];
-          const data = await res.json();
-          const events = data.events || [];
-          return events.map(ev => {
-            const comp = ev.competitions?.[0];
-            const home = comp?.competitors?.find(c => c.homeAway === 'home');
-            const away = comp?.competitors?.find(c => c.homeAway === 'away');
-            const kickoffDate = new Date(ev.date);
-            const kickoffWIB = kickoffDate.toLocaleTimeString('id-ID', {
-              hour: '2-digit',
-              minute: '2-digit',
-              timeZone: 'Asia/Jakarta'
-            }) + ' WIB';
-
-            const state = ev.status?.type?.state || 'pre';
-            const statusDesc = state === 'post'
-              ? `FT (${home?.score ?? 0}-${away?.score ?? 0})`
-              : state === 'in'
-                ? `LIVE (${home?.score ?? 0}-${away?.score ?? 0})`
-                : kickoffWIB;
-
-            // Extract scoreboard-level top scorers if attached
-            const sbLeaders = [];
-            [ { c: home, side: 'HOME' }, { c: away, side: 'AWAY' } ].forEach(pair => {
-              const lArr = pair.c?.leaders || [];
-              const gCat = lArr.find(x => /goal/i.test(x.name || x.displayName || '')) || lArr[0];
-              const top = gCat?.leaders?.[0];
-              if (top?.athlete?.displayName) {
-                sbLeaders.push({
-                  player: top.athlete.displayName,
-                  team: pair.side,
-                  prob: pair.side === 'HOME' ? 49 : 40,
-                  note: top.displayValue ? `Top Skor Live: ${top.displayValue}` : 'Top Skor Aktif (ESPN)'
-                });
-              }
-            });
-
-            return {
-              eventId: ev.id,
-              leagueSlug: lg.slug,
-              league: lg.name,
-              kickoff: statusDesc,
-              homeId: home?.team?.id || '',
-              awayId: away?.team?.id || '',
-              home_team: home?.team?.displayName || 'Home Team',
-              away_team: away?.team?.displayName || 'Away Team',
-              home_record: home?.records?.[0]?.summary || '',
-              away_record: away?.records?.[0]?.summary || '',
-              home_form: home?.form || '',
-              away_form: away?.form || '',
-              venue: comp?.venue?.fullName || '',
-              sbLeaders
-            };
-          });
-        } catch {
-          return [];
-        }
-      });
-
-      const results = await Promise.all(requests);
-      const flatMatches = results.flat().slice(0, 8);
-
-      // Enrich every match with live ESPN Summary (H2H + Season Goal Leaders)
-      const enriched = await Promise.all(flatMatches.map(async (m) => {
-        const details = await fetchESPNMatchDetails(
-          m.leagueSlug, m.eventId, m.homeId, m.awayId, m.home_team, m.away_team, m.sbLeaders
-        );
-        return {
-          ...m,
-          live_h2h: details.realH2H,
-          live_scorers: details.realScorers
-        };
-      }));
-
-      return enriched;
-    }
-
-    // 2. Call OpenRouter API with 12s Timeout + Free Fast Model Fallback (100% Gratis)
-    async function singleOpenRouterRequest(apiKey, modelId, promptText, timeoutMs = 12000) {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
-      try {
-        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
-          signal: controller.signal,
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': window.location.href,
-            'X-Title': 'GoalPulse AI Football Predictor'
-          },
-          body: JSON.stringify({
-            model: modelId,
-            messages: [
-              {
-                role: 'system',
-                content: 'Analis taktis sepak bola profesional. Jawab HANYA format yang diminta secara padat, cepat, akurat, dan berbahasa Indonesia.'
-              },
-              {
-                role: 'user',
-                content: promptText
-              }
-            ],
-            temperature: 0.2,
-            max_tokens: 950
-          })
-        });
-
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error?.message || `HTTP ${res.status}`);
-        }
-        const text = data.choices?.[0]?.message?.content || '';
-        if (!text) throw new Error('Respon kosong');
-        return { text, usedModel: data.model || modelId };
-      } finally {
-        clearTimeout(timer);
-      }
-    }
-
-    async function callOpenRouter(promptText) {
-      const apiKey = getApiKey();
-      if (!apiKey) {
-        openApiModal();
-        throw new Error('API Key OpenRouter belum dipasang.');
-      }
-
-      const preferred = getSelectedModel();
-      const freeFallbacks = [
-        preferred,
-        'google/gemini-2.0-flash-exp:free',
-        'meta-llama/llama-3.3-70b-instruct:free',
-        'qwen/qwen-2.5-72b-instruct:free',
-        'openrouter/free'
-      ].filter((v, i, a) => Boolean(v) && a.indexOf(v) === i);
-
-      let lastErr = null;
-      for (const mod of freeFallbacks) {
-        try {
-          return await singleOpenRouterRequest(apiKey, mod, promptText, 13000);
-        } catch (err) {
-          lastErr = err;
-          // If auth error (401/402), stop immediately
-          if (/401|402|invalid.*key/i.test(err.message || '')) throw err;
-        }
-      }
-      throw new Error(lastErr?.name === 'AbortError'
-        ? 'Server AI gratis sedang padat (timeout). Coba klik Cari Jadwal lagi.'
-        : (lastErr?.message || 'Semua antrean model gratis sedang sibuk.'));
-    }
-
-    function extractJsonArray(rawText) {
-      const cleaned = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
-      const start = cleaned.indexOf('[');
-      const end = cleaned.lastIndexOf(']');
-      if (start !== -1 && end !== -1) {
-        return JSON.parse(cleaned.slice(start, end + 1));
-      }
-      throw new Error('Format JSON tidak valid.');
-    }
-
-    // Create instant skeleton card directly from ESPN live data while AI calculates score
-    function buildInstantESPNMatch(f) {
-      const h2h = f.live_h2h || {
-        home_wins: 0,
-        draws: 0,
-        away_wins: 0,
-        last_meeting: 'Belum tercatat',
-        is_live_db: false,
-        trend: 'Menunggu sinkronisasi tren pertandingan...'
-      };
-      const hasLiveScorers = Array.isArray(f.live_scorers) && f.live_scorers.length > 0;
-      return {
-        league: f.league,
-        kickoff: f.kickoff,
-        home_team: f.home_team,
-        away_team: f.away_team,
-        home_score: '?',
-        away_score: '?',
-        home_win_prob: 34,
-        draw_prob: 32,
-        away_win_prob: 34,
-        confidence: 'Menghitung...',
-        h2h,
-        predicted_scorers: hasLiveScorers ? f.live_scorers : [],
-        scorers_source: hasLiveScorers ? 'ESPN Live Stats' : 'AI Model',
-        key_factor: 'Menghitung variabel taktis dari data ESPN...',
-        score_reasoning: 'Data jadwal, H2H, dan statistik ESPN sudah dimuat. AI sedang menghitung proyeksi skor akhir...',
-        home_form: f.home_form || '',
-        away_form: f.away_form || '',
-        is_pending_ai: true
-      };
-    }
-
-    // Merge real ESPN H2H & Scorers priority over AI fallback
-    function normalizeMatchPrediction(m, rawFixture = null) {
-      let hs = Number(m.home_score ?? 1);
-      let as = Number(m.away_score ?? 1);
-      let hw = Number(m.home_win_prob ?? 40);
-      let dr = Number(m.draw_prob ?? 30);
-      let aw = Number(m.away_win_prob ?? 30);
-
-      let total = hw + dr + aw;
-      if (total <= 0) { hw = 40; dr = 30; aw = 30; total = 100; }
-      hw = Math.round((hw / total) * 100);
-      dr = Math.round((dr / total) * 100);
-      aw = 100 - hw - dr;
-
-      if (hs > as && hw <= Math.max(dr, aw)) {
-        hw = Math.max(dr, aw) + 12;
-        const rem = 100 - hw;
-        dr = Math.round(rem * 0.55);
-        aw = rem - dr;
-      } else if (as > hs && aw <= Math.max(dr, hw)) {
-        aw = Math.max(dr, hw) + 12;
-        const rem = 100 - aw;
-        dr = Math.round(rem * 0.55);
-        hw = rem - dr;
-      } else if (hs === as && dr < Math.max(hw, aw) - 5) {
-        dr = 38;
-        hw = 32;
-        aw = 30;
-      }
-
-      const liveH2H = rawFixture?.live_h2h;
-      const h2h = liveH2H ? {
-        ...liveH2H,
-        trend: liveH2H.trend
-      } : {
-        home_wins: Number(m.h2h?.home_wins ?? 0),
-        draws: Number(m.h2h?.draws ?? 0),
-        away_wins: Number(m.h2h?.away_wins ?? 0),
-        last_meeting: m.h2h?.last_meeting || 'Belum tercatat',
-        is_live_db: false,
-        trend: m.h2h?.trend || 'Belum ada catatan pertemuan resmi terbaru di database.'
-      };
-
-      const liveScorers = rawFixture?.live_scorers;
-      let scorers = [];
-      let scorersSource = 'AI Model';
-      if (liveScorers && liveScorers.length > 0 && (hs + as > 0)) {
-        scorers = liveScorers;
-        scorersSource = 'ESPN Live Stats';
-      } else if (Array.isArray(m.predicted_scorers)) {
-        scorers = m.predicted_scorers;
-      }
-
-      return {
-        ...m,
-        home_score: hs,
-        away_score: as,
-        home_win_prob: hw,
-        draw_prob: dr,
-        away_win_prob: aw,
-        h2h,
-        predicted_scorers: scorers,
-        scorers_source: scorersSource,
-        home_form: rawFixture?.home_form || '',
-        away_form: rawFixture?.away_form || '',
-        is_pending_ai: false
-      };
-    }
-
-    async function predictBatchWithAI(batchFixtures, dateStr) {
-      const compactPayload = batchFixtures.map(f => ({
-        home_team: f.home_team,
-        away_team: f.away_team,
-        home_record: f.home_record,
-        away_record: f.away_record,
-        home_form: f.home_form,
-        away_form: f.away_form,
-        espn_h2h: f.live_h2h ? `${f.live_h2h.home_wins}W-${f.live_h2h.draws}D-${f.live_h2h.away_wins}L (${f.live_h2h.last_meeting})` : null,
-        top_scorers: (f.live_scorers || []).map(s => `${s.player} (${s.team})`)
-      }));
-
-      const prompt = `Data laga ${dateStr}:
-${JSON.stringify(compactPayload)}
-Kembalikan HANYA JSON array ringkas (tanpa markdown) berisi ${batchFixtures.length} objek urut sesuai input:
-[{"home_score":2,"away_score":1,"home_win_prob":54,"draw_prob":25,"away_win_prob":21,"confidence":"Tinggi","h2h":{"home_wins":0,"draws":0,"away_wins":0,"last_meeting":"Belum tercatat","trend":"1 kalimat tren"},"predicted_scorers":[{"player":"Nama","team":"HOME","prob":45,"note":"Top skor"}],"key_factor":"1 kalimat singkat","score_reasoning":"2 kalimat analisis taktis singkat"}]
-Jika espn_h2h null isi 0-0-0. Total prob=100.`;
-
-      const { text, usedModel } = await callOpenRouter(prompt);
-      const parsed = extractJsonArray(text);
-      return {
-        items: batchFixtures.map((f, idx) => normalizeMatchPrediction({
-          league: f.league,
-          kickoff: f.kickoff,
-          home_team: f.home_team,
-          away_team: f.away_team,
-          ...(parsed[idx] || {})
-        }, f)),
-        usedModel
-      };
-    }
-
-    async function fetchRealTimeMatches() {
-      const dateStr = document.getElementById('matchDateInput').value;
-      const leagueSlug = document.getElementById('leagueSelect').value;
-      const statusText = document.getElementById('statusText');
-      const loader = document.getElementById('loadingContainer');
-      const grid = document.getElementById('matchesGrid');
-      const fetchBtn = document.getElementById('fetchBtn');
-
-      loader.classList.remove('hidden');
-      grid.innerHTML = '';
-      document.getElementById('sourcesBox').classList.add('hidden');
-      fetchBtn.disabled = true;
-      statusText.textContent = '1/2 Menarik jadwal live & statistik dari server ESPN...';
-
-      try {
-        const liveFixtures = await fetchRealFixturesFromESPN(dateStr, leagueSlug);
-        loader.classList.add('hidden');
-
-        if (!liveFixtures.length) {
-          fetchBtn.disabled = false;
-          statusText.textContent = `Tidak ada jadwal resmi di liga pilihan pada ${dateStr}. Gunakan "Prediksi Kustom" atau ganti tanggal.`;
-          grid.innerHTML = `
-            <div class="col-span-full glass-card rounded-2xl p-8 text-center space-y-3">
-              <p class="text-sm font-bold text-slate-200">Tidak Ada Jadwal Liga Utama pada ${dateStr}</p>
-              <p class="text-xs text-slate-400 max-w-md mx-auto">Coba pilih tanggal lain atau gunakan tombol <strong>Prediksi Kustom</strong> di pojok kanan atas untuk menganalisis duel dua tim mana saja.</p>
-              <button onclick="openCustomModal()" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 text-slate-950">+ Buat Prediksi Kustom</button>
-            </div>`;
-          return;
         }
 
-        // INSTANT RENDER: Show all ESPN matches immediately while AI calculates in fast parallel batches of 3
-        currentMatches = liveFixtures.map(buildInstantESPNMatch);
-        renderMatches(currentMatches);
-        statusText.textContent = `2/2 Jadwal & H2H ESPN tampil! AI menghitung skor dalam batch paralel cepat...`;
+        function renderPredictionUI(prediksiArray) {
+            const container = document.getElementById('prediction-results');
+            container.innerHTML = ''; 
 
-        const BATCH_SIZE = 3;
-        const batches = [];
-        for (let i = 0; i < liveFixtures.length; i += BATCH_SIZE) {
-          batches.push({ startIndex: i, fixtures: liveFixtures.slice(i, i + BATCH_SIZE) });
-        }
-
-        let lastUsedModel = getSelectedModel();
-        let completedBatches = 0;
-
-        await Promise.all(batches.map(async (b) => {
-          try {
-            const res = await predictBatchWithAI(b.fixtures, dateStr);
-            lastUsedModel = res.usedModel;
-            res.items.forEach((predItem, offset) => {
-              currentMatches[b.startIndex + offset] = predItem;
-            });
-            completedBatches++;
-            renderMatches(currentMatches);
-            statusText.textContent = `Memproses prediksi AI (${completedBatches}/${batches.length} batch selesai)...`;
-          } catch (batchErr) {
-            // Keep ESPN data visible and mark batch fallback gracefully
-            b.fixtures.forEach((f, offset) => {
-              currentMatches[b.startIndex + offset] = normalizeMatchPrediction({
-                league: f.league,
-                kickoff: f.kickoff,
-                home_team: f.home_team,
-                away_team: f.away_team,
-                home_score: 1,
-                away_score: 1,
-                home_win_prob: 36,
-                draw_prob: 34,
-                away_win_prob: 30,
-                confidence: 'Data ESPN',
-                key_factor: 'Data statistik ESPN live (antrean AI penuh)',
-                score_reasoning: 'Statistik H2H & top skor resmi ESPN berhasil dimuat. Klik Bedah Taktik AI untuk analisis mendalam.'
-              }, f);
-            });
-            renderMatches(currentMatches);
-          }
-        }));
-
-        document.getElementById('sourcesBox').classList.remove('hidden');
-        document.getElementById('modelUsedBadge').textContent = `Engine: ${lastUsedModel}`;
-        statusText.textContent = `Selesai! ${currentMatches.length} laga berhasil dimuat untuk ${dateStr}.`;
-      } catch (err) {
-        loader.classList.add('hidden');
-        statusText.textContent = `Terjadi kendala: ${err.message}`;
-        grid.innerHTML = `
-          <div class="col-span-full glass-card rounded-2xl p-6 text-center space-y-3 border border-rose-500/30">
-            <p class="text-sm font-semibold text-rose-400">Gagal Memuat Jadwal</p>
-            <p class="text-xs text-slate-300 max-w-lg mx-auto">${err.message}</p>
-            <button onclick="fetchRealTimeMatches()" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 text-slate-950">Coba Lagi</button>
-          </div>`;
-      } finally {
-        fetchBtn.disabled = false;
-      }
-    }
-
-    async function searchLiveMatchByTeamNames(homeQuery, awayQuery) {
-      const hLow = homeQuery.toLowerCase();
-      const aLow = awayQuery.toLowerCase();
-      // Check today and tomorrow on ESPN to see if this match is a real upcoming fixture
-      const datesToCheck = [];
-      for (let offset = 0; offset <= 2; offset++) {
-        const d = new Date();
-        d.setDate(d.getDate() + offset);
-        const yyyy = d.getFullYear();
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        const dd = String(d.getDate()).padStart(2, '0');
-        datesToCheck.push(`${yyyy}-${mm}-${dd}`);
-      }
-
-      for (const iso of datesToCheck) {
-        const fixtures = await fetchRealFixturesFromESPN(iso, 'ALL');
-        const found = fixtures.find(f => {
-          const fh = f.home_team.toLowerCase();
-          const fa = f.away_team.toLowerCase();
-          return (fh.includes(hLow) && fa.includes(aLow)) || (fh.includes(aLow) && fa.includes(hLow));
-        });
-        if (found) return found;
-      }
-      return null;
-    }
-
-    async function runCustomPrediction() {
-      const home = document.getElementById('customHomeInput').value.trim();
-      const away = document.getElementById('customAwayInput').value.trim();
-      const comp = document.getElementById('customCompInput').value.trim();
-      const btn = document.getElementById('customSubmitBtn');
-
-      if (!home || !away) return alert('Isi kedua nama tim terlebih dahulu!');
-      btn.disabled = true;
-      btn.textContent = 'Mencari Data Live...';
-
-      try {
-        // Try finding real upcoming ESPN fixture first (including H2H & top scorers!)
-        const matchedLive = await searchLiveMatchByTeamNames(home, away);
-        btn.textContent = 'Menganalisis...';
-
-        const activeLeague = matchedLive ? matchedLive.league : (comp || 'Laga Kustom / Head-to-Head');
-        const activeKickoff = matchedLive ? `${matchedLive.kickoff} (Live Sync)` : 'Analisis Kustom';
-        const activeHome = matchedLive ? matchedLive.home_team : home;
-        const activeAway = matchedLive ? matchedLive.away_team : away;
-
-        const liveContextBlock = matchedLive
-          ? `DATA RESMI ESPN DITEMUKAN UNTUK LAGA INI:
-${JSON.stringify({
-  league: matchedLive.league,
-  kickoff: matchedLive.kickoff,
-  home_team: matchedLive.home_team,
-  away_team: matchedLive.away_team,
-  home_record: matchedLive.home_record,
-  away_record: matchedLive.away_record,
-  home_form: matchedLive.home_form,
-  away_form: matchedLive.away_form,
-  espn_live_h2h: matchedLive.live_h2h,
-  espn_live_top_scorers: matchedLive.live_scorers
-}, null, 2)}
-WAJIB gunakan angka H2H dan daftar top skor ESPN di atas jika tersedia.`
-          : `Tidak ditemukan jadwal resmi 48 jam ke depan di ESPN untuk duel ini; gunakan pengetahuan statistik terkini.`;
-
-        const prompt = `Analisis pertandingan sepak bola antara ${activeHome} (Tuan Rumah) vs ${activeAway} (Tamu) pada kompetisi ${activeLeague}.
-${liveContextBlock}
-Kembalikan HANYA array JSON berisi 1 objek pertandingan lengkap:
-[
-  {
-    "league": "${activeLeague}",
-    "kickoff": "${activeKickoff}",
-    "home_team": "${activeHome}",
-    "away_team": "${activeAway}",
-    "home_score": 1,
-    "away_score": 2,
-    "home_win_prob": 28,
-    "draw_prob": 27,
-    "away_win_prob": 45,
-    "confidence": "Tinggi",
-    "h2h": {
-      "home_wins": 1,
-      "draws": 2,
-      "away_wins": 2,
-      "last_meeting": "1-1",
-      "trend": "1 kalimat ringkasan tren pertemuan kedua tim"
-    },
-    "predicted_scorers": [
-      { "player": "Pemain Kunci Home", "team": "HOME", "prob": 42, "note": "Penyerang andalan" },
-      { "player": "Pemain Kunci Away", "team": "AWAY", "prob": 48, "note": "Top skor aktif" }
-    ],
-    "key_factor": "Faktor kunci penentu pertandingan",
-    "score_reasoning": "Penjelasan detail 3 kalimat mengapa skor spesifik ini diprediksi terjadi berdasarkan performa terkini, rekor grup/liga, dan H2H."
-  }
-]`;
-
-        const { text, usedModel } = await callOpenRouter(prompt);
-        const parsed = extractJsonArray(text).map(item => normalizeMatchPrediction(item, matchedLive));
-        currentMatches = [...parsed, ...currentMatches];
-        renderMatches(currentMatches);
-        document.getElementById('sourcesBox').classList.remove('hidden');
-        document.getElementById('modelUsedBadge').textContent = `Engine: ${usedModel}`;
-        closeCustomModal();
-        document.getElementById('customHomeInput').value = '';
-        document.getElementById('customAwayInput').value = '';
-        document.getElementById('customCompInput').value = '';
-      } catch (err) {
-        alert('Error: ' + err.message);
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Analisis Lengkap';
-      }
-    }
-
-    async function openDeepAnalysis(index) {
-      const match = currentMatches[index];
-      if (!match) return;
-
-      const modal = document.getElementById('deepModal');
-      const title = document.getElementById('deepModalTitle');
-      const body = document.getElementById('deepModalBody');
-
-      title.textContent = `${match.home_team} vs ${match.away_team} (${match.home_score}-${match.away_score})`;
-      body.innerHTML = `<div class="py-8 text-center text-slate-400 animate-pulse">Menyusun laporan bedah taktik, statistik Head-to-Head, dan analisis pencetak gol...</div>`;
-      modal.classList.remove('hidden');
-
-      const prompt = `Berikan laporan bedah taktik & statistik pra-pertandingan mendalam berbahasa Indonesia untuk laga ${match.home_team} vs ${match.away_team} (${match.league}).
-Data H2H: ${match.home_team} menang ${match.h2h?.home_wins}, Imbang ${match.h2h?.draws}, ${match.away_team} menang ${match.h2h?.away_wins}.
-Kandidat Pencetak Gol: ${(match.predicted_scorers || []).map(s => s.player).join(', ')}.
-Prediksi skor model kita adalah ${match.home_team} ${match.home_score} - ${match.away_score} ${match.away_team}.
-Susun ringkas dalam 5 poin jelas:
-1. Rekor Head-to-Head & Tren Pertemuan Terakhir
-2. Performa Terkini & Karakteristik Gaya Bermain Kedua Tim
-3. Analisis Kandidat Pencetak Gol & Duel Kunci Antar Lini
-4. Skenario Terciptanya Gol & Momentum Babak
-5. Rasionalisasi Skor Akhir (${match.home_score}-${match.away_score})`;
-
-      try {
-        const { text } = await callOpenRouter(prompt);
-        const formatted = text
-          .replace(/\*\*(.*?)\*\*/g, '<strong class="text-emerald-300">$1</strong>')
-          .replace(/\n/g, '<br/>');
-        body.innerHTML = `<div class="space-y-2 text-slate-200">${formatted}</div>`;
-      } catch (err) {
-        body.innerHTML = `<p class="text-rose-400">Gagal memuat analisis mendalam: ${err.message}</p>`;
-      }
-    }
-
-    function renderMatches(matches) {
-      const grid = document.getElementById('matchesGrid');
-      if (!matches.length) {
-        grid.innerHTML = `<div class="col-span-full glass-card rounded-2xl p-8 text-center text-sm text-slate-400">Tidak ada jadwal pertandingan ditemukan.</div>`;
-        return;
-      }
-
-      grid.innerHTML = matches.map((m, idx) => {
-        const outcomeBadge = m.is_pending_ai
-          ? `<span class="text-slate-400 animate-pulse">Menghitung...</span>`
-          : m.home_score > m.away_score
-            ? `<span class="text-emerald-400 font-semibold">Unggul ${m.home_team}</span>`
-            : m.away_score > m.home_score
-              ? `<span class="text-cyan-400 font-semibold">Unggul ${m.away_team}</span>`
-              : `<span class="text-amber-400 font-semibold">Potensi Imbang</span>`;
-
-        const h2h = m.h2h || { home_wins: 0, draws: 0, away_wins: 0, last_meeting: '-', trend: '', is_live_db: false };
-        const h2hBadge = h2h.is_live_db
-          ? `<span class="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[9px] font-bold">ESPN LIVE DB</span>`
-          : `<span class="px-1.5 py-0.5 rounded bg-white/5 text-slate-400 text-[9px] font-semibold">AI ESTIMATE</span>`;
-
-        const scorerBadge = m.scorers_source === 'ESPN Live Stats'
-          ? `<span class="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[9px] font-bold">ESPN LIVE STATS</span>`
-          : `<span class="px-1.5 py-0.5 rounded bg-white/5 text-slate-400 text-[9px] font-semibold">AI PROJECTION</span>`;
-
-        const scorersHtml = (m.predicted_scorers && m.predicted_scorers.length > 0)
-          ? m.predicted_scorers.map(sc => {
-              const isHome = (sc.team || '').toUpperCase() === 'HOME';
-              const teamLabel = isHome ? m.home_team : m.away_team;
-              const badgeClass = isHome
-                ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                : 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30';
-              return `
-                <div class="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-pitch-950/80 border border-white/5">
-                  <div class="flex items-center gap-2 min-w-0">
-                    <span class="text-xs">&#9917;</span>
-                    <div class="truncate">
-                      <span class="text-xs font-bold text-white">${sc.player}</span>
-                      <span class="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border ${badgeClass}">${teamLabel}</span>
-                      ${sc.note ? `<p class="text-[10px] text-slate-400 truncate">${sc.note}</p>` : ''}
+            prediksiArray.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'match-card';
+                card.innerHTML = `
+                    <h3 class="match-title">${item.pertandingan}</h3>
+                    <div class="score-prediction">${item.skor}</div>
+                    
+                    <div class="market-badges">
+                        <span class="badge winner">🏆 ${item.pemenang}</span>
+                        <span class="badge ou">⚽ ${item.over_under}</span>
+                        <span class="badge hdp">📈 ${item.handicap}</span>
                     </div>
-                  </div>
-                  <span class="shrink-0 text-xs font-display font-bold text-amber-400">${sc.prob}%</span>
-                </div>
-              `;
-            }).join('')
-          : `<div class="text-xs text-slate-400 italic px-3 py-2 rounded-xl bg-pitch-950/60 border border-white/5">Prediksi laga ketat minim gol (potensi clean sheet).</div>`;
+                    
+                    <div class="analysis-box">
+                        <p><strong>Bedah Taktik:</strong> ${item.analisa}</p>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
 
-        return `
-          <article class="glass-card rounded-2xl p-5 transition duration-200 flex flex-col justify-between gap-4 shadow-lg">
-            <div>
-              <!-- Header -->
-              <div class="flex items-center justify-between gap-2 text-xs pb-3 border-b border-white/10">
-                <span class="font-semibold text-emerald-400 truncate">${m.league}</span>
-                <div class="flex items-center gap-2 shrink-0">
-                  <span class="px-2 py-0.5 rounded bg-white/5 text-slate-300 font-medium">${m.kickoff}</span>
-                  <span class="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 text-[10px] font-bold uppercase">${m.confidence || 'Tinggi'}</span>
-                </div>
-              </div>
-
-              <!-- Scoreboard Prediction -->
-              <div class="grid grid-cols-3 items-center gap-2 py-4 text-center">
-                <div class="space-y-1">
-                  <div class="w-11 h-11 mx-auto rounded-full bg-pitch-900 border border-white/10 flex items-center justify-center font-display font-bold text-sm text-emerald-400">
-                    ${m.home_team.slice(0, 3).toUpperCase()}
-                  </div>
-                  <h3 class="font-bold text-sm sm:text-base text-white leading-tight">${m.home_team}</h3>
-                  <span class="text-[10px] uppercase tracking-wider text-slate-400">Home ${m.home_form ? '• ' + m.home_form : ''}</span>
-                </div>
-
-                <div class="flex flex-col items-center">
-                  <span class="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Prediksi Skor</span>
-                  <div class="px-4 py-2 rounded-2xl bg-pitch-950 border border-emerald-500/40 shadow-inner shadow-emerald-500/10 flex items-center gap-2.5">
-                    <span class="font-display font-bold text-2xl sm:text-3xl text-emerald-400">${m.home_score}</span>
-                    <span class="text-slate-500 font-bold">-</span>
-                    <span class="font-display font-bold text-2xl sm:text-3xl text-cyan-400">${m.away_score}</span>
-                  </div>
-                  <div class="mt-1.5 text-[11px]">${outcomeBadge}</div>
-                </div>
-
-                <div class="space-y-1">
-                  <div class="w-11 h-11 mx-auto rounded-full bg-pitch-900 border border-white/10 flex items-center justify-center font-display font-bold text-sm text-cyan-400">
-                    ${m.away_team.slice(0, 3).toUpperCase()}
-                  </div>
-                  <h3 class="font-bold text-sm sm:text-base text-white leading-tight">${m.away_team}</h3>
-                  <span class="text-[10px] uppercase tracking-wider text-slate-400">Away ${m.away_form ? '• ' + m.away_form : ''}</span>
-                </div>
-              </div>
-
-              <!-- Win Probability Bar -->
-              <div class="space-y-1.5 bg-pitch-950/70 p-3 rounded-xl border border-white/5">
-                <div class="flex justify-between text-[11px] font-bold">
-                  <span class="text-emerald-400">1 (Home) ${m.home_win_prob}%</span>
-                  <span class="text-amber-400">X (Draw) ${m.draw_prob}%</span>
-                  <span class="text-cyan-400">2 (Away) ${m.away_win_prob}%</span>
-                </div>
-                <div class="w-full h-2.5 rounded-full overflow-hidden flex bg-pitch-800">
-                  <div style="width: ${m.home_win_prob}%" class="bg-emerald-500 transition-all duration-500"></div>
-                  <div style="width: ${m.draw_prob}%" class="bg-amber-400 transition-all duration-500"></div>
-                  <div style="width: ${m.away_win_prob}%" class="bg-cyan-500 transition-all duration-500"></div>
-                </div>
-              </div>
-
-              <!-- Head-to-Head (H2H) Box -->
-              <div class="mt-3.5 bg-pitch-950/70 p-3 rounded-xl border border-white/5 space-y-2">
-                <div class="flex items-center justify-between text-[11px] gap-2">
-                  <div class="flex items-center gap-1.5">
-                    <span class="font-bold uppercase tracking-wider text-slate-300">Head-to-Head</span>
-                    ${h2hBadge}
-                  </div>
-                  <span class="text-slate-400">Terakhir: <strong class="text-slate-200">${h2h.last_meeting}</strong></span>
-                </div>
-                <div class="grid grid-cols-3 gap-2 text-center">
-                  <div class="py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                    <div class="font-display font-bold text-sm text-emerald-400">${h2h.home_wins}</div>
-                    <div class="text-[10px] text-slate-400 truncate px-1">${m.home_team}</div>
-                  </div>
-                  <div class="py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                    <div class="font-display font-bold text-sm text-amber-400">${h2h.draws}</div>
-                    <div class="text-[10px] text-slate-400">Imbang</div>
-                  </div>
-                  <div class="py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
-                    <div class="font-display font-bold text-sm text-cyan-400">${h2h.away_wins}</div>
-                    <div class="text-[10px] text-slate-400 truncate px-1">${m.away_team}</div>
-                  </div>
-                </div>
-                ${h2h.trend ? `<p class="text-[11px] text-slate-400 leading-snug">${h2h.trend}</p>` : ''}
-              </div>
-
-              <!-- Anytime Goalscorer Predictions -->
-              <div class="mt-3.5 space-y-1.5">
-                <div class="flex items-center justify-between text-[11px]">
-                  <div class="flex items-center gap-1.5">
-                    <span class="font-bold uppercase tracking-wider text-slate-300">Prediksi Pencetak Gol</span>
-                    ${scorerBadge}
-                  </div>
-                  <span class="text-[10px] text-slate-400">Peluang Gol</span>
-                </div>
-                <div class="space-y-1.5">
-                  ${scorersHtml}
-                </div>
-              </div>
-
-              <!-- Score-Based Reasoning -->
-              <div class="mt-3.5 space-y-1.5">
-                <div class="text-[11px] font-semibold text-emerald-300 flex items-center gap-1.5">
-                  <span>&#9889; Faktor Kunci:</span>
-                  <span class="text-slate-300 font-normal">${m.key_factor}</span>
-                </div>
-                <p class="text-xs text-slate-300 leading-relaxed bg-white/[0.03] p-3 rounded-xl border border-white/5">
-                  ${m.score_reasoning}
-                </p>
-              </div>
-            </div>
-
-            <!-- Footer Action -->
-            <div class="pt-2 flex items-center justify-between">
-              <span class="text-[11px] text-slate-500">ESPN Live + OpenRouter AI</span>
-              <button onclick="openDeepAnalysis(${idx})" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-pitch-800 hover:bg-emerald-500 hover:text-slate-950 text-emerald-400 border border-emerald-500/30 transition flex items-center gap-1.5">
-                <span>Bedah Taktik AI</span>
-                <span>&rarr;</span>
-              </button>
-            </div>
-          </article>
-        `;
-      }).join('');
-    }
-
-    function renderSampleShowcase() {
-      currentMatches = [
-        normalizeMatchPrediction({
-          league: 'CONTOH TAMPILAN LIVE DB — PASANG OPENROUTER KEY UNTUK DATA NYATA',
-          kickoff: '22:00 WIB',
-          home_team: 'Arsenal',
-          away_team: 'Liverpool',
-          home_score: 2,
-          away_score: 1,
-          home_win_prob: 49,
-          draw_prob: 27,
-          away_win_prob: 24,
-          confidence: 'Live DB Ready',
-          h2h: {
-            home_wins: 2,
-            draws: 2,
-            away_wins: 1,
-            last_meeting: '2-2 (2025)',
-            is_live_db: true,
-            trend: 'Data riwayat resmi ESPN (5 pertemuan): Arsenal menang 2x, imbang 2x, Liverpool menang 1x.'
-          },
-          predicted_scorers: [
-            { player: 'Bukayo Saka', team: 'HOME', prob: 48, note: 'Statistik Live: Top Skor Klub (ESPN)' },
-            { player: 'Mohamed Salah', team: 'AWAY', prob: 42, note: 'Statistik Live: Top Skor Klub (ESPN)' }
-          ],
-          scorers_source: 'ESPN Live Stats',
-          key_factor: 'Dominasi kandang & rekor pertemuan liga terbaru',
-          score_reasoning: 'Tempel API Key OpenRouter (sk-or-v1-...) di pojok kanan atas untuk menarik jadwal nyata, H2H resmi, dan top skor aktif langsung dari ESPN.'
-        }, {
-          live_h2h: {
-            home_wins: 2,
-            draws: 2,
-            away_wins: 1,
-            last_meeting: '2-2 (2025)',
-            is_live_db: true,
-            trend: 'Data riwayat resmi ESPN (5 pertemuan): Arsenal menang 2x, imbang 2x, Liverpool menang 1x.'
-          },
-          live_scorers: [
-            { player: 'Bukayo Saka', team: 'HOME', prob: 48, note: 'Statistik Live: Top Skor Klub (ESPN)' },
-            { player: 'Mohamed Salah', team: 'AWAY', prob: 42, note: 'Statistik Live: Top Skor Klub (ESPN)' }
-          ],
-          home_form: 'WWDWW',
-          away_form: 'WWLWW'
-        })
-      ];
-      renderMatches(currentMatches);
-    }
-  </script>
+        function startAnalysis() {
+            const matchData = document.getElementById('match-input').value;
+            if (!matchData.trim()) {
+                alert('Bang, masukin dulu jadwal pertandingannya!');
+                return;
+            }
+            document.getElementById('loading-indicator').style.color = '#ffaa00';
+            document.getElementById('loading-indicator').innerHTML = '⏳ GoalPulse AI sedang membedah data pertandingan...';
+            getPrediction(matchData);
+        }
+    </script>
 </body>
 </html>
